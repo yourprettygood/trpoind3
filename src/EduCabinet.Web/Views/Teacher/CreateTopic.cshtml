@@ -1,0 +1,44 @@
+@model EduCabinet.Web.Models.Entities.Topic
+@{
+    ViewData["Title"] = "Добавление темы";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-primary text-white py-3">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-folder-plus me-2"></i>Новая учебная тема</h4>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="CreateTopic" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="DisciplineId" />
+
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label fw-semibold">Название темы</label>
+                        <input asp-for="Title" class="form-control" placeholder="Например: Тема 1. Развёртывание и поддержка ПО" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-semibold">Описание (необязательно)</label>
+                        <textarea asp-for="Description" class="form-control" rows="2" placeholder="Краткое описание содержания темы..."></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="OrderIndex" class="form-label fw-semibold">Порядковый номер</label>
+                        <input asp-for="OrderIndex" class="form-control" type="number" min="1" value="1" />
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a asp-action="Topics" asp-route-disciplineId="@Model.DisciplineId" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Отмена
+                        </a>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-check2 me-1"></i>Сохранить тему
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,96 @@
+@model EduCabinet.Web.ViewModels.StudentGradeBookViewModel
+@{
+    ViewData["Title"] = "Моя зачётная книжка";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-mortarboard text-primary me-2"></i>Зачётная книжка студента</h2>
+        <p class="text-muted mb-0">Сводные сведения об успеваемости, сданных тестах и освоении курсов.</p>
+    </div>
+    <a asp-action="GradeReport" class="btn btn-outline-dark">
+        <i class="bi bi-printer me-1"></i>Официальная печатная ведомость
+    </a>
+</div>
+
+<div class="card shadow-sm border-0 rounded-3 mb-4 bg-white">
+    <div class="card-body p-4">
+        <div class="row">
+            <div class="col-md-6">
+                <span class="text-muted small">Обучающийся:</span>
+                <h4 class="fw-bold text-dark mb-1">@Model.Student.FullName</h4>
+                <div class="text-muted small">Email: @Model.Student.Email</div>
+            </div>
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <span class="text-muted small">Учебная группа:</span>
+                <h5 class="fw-bold text-primary mb-1">@(Model.Group?.Name ?? "Не назначена")</h5>
+                <div class="text-muted small">Курс: @(Model.Group?.CourseNumber ?? 3)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@foreach (var disc in Model.Disciplines)
+{
+    <div class="card shadow-sm border-0 rounded-3 mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="fw-bold mb-0 text-dark">@disc.DisciplineTitle</h5>
+                <small class="text-muted">Преподаватель: @disc.TeacherName</small>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-primary fs-6">Прогресс: @disc.ProgressPercent%</span>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50%;">Тема / Лекция</th>
+                            <th class="text-center">Статус освоения</th>
+                            <th class="text-center">Лучший результат теста</th>
+                            <th class="text-center">Использовано попыток</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var lec in disc.LectureGrades)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">@lec.LectureTitle</div>
+                                </td>
+                                <td class="text-center">
+                                    @if (lec.IsCompleted)
+                                    {
+                                        <span class="badge bg-success"><i class="bi bi-check2 me-1"></i>Освоено</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Не завершено</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (lec.BestTestScore.HasValue)
+                                    {
+                                        <span class="fw-bold @(lec.TestPassed == true ? "text-success" : "text-danger")">
+                                            @lec.BestTestScore%
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @lec.AttemptsUsed
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}

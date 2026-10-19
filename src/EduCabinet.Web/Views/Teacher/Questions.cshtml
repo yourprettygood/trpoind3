@@ -1,0 +1,65 @@
+@model EduCabinet.Web.Models.Entities.Lecture
+@{
+    ViewData["Title"] = "Контрольные вопросы: " + Model.Title;
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Disciplines">Дисциплины</a></li>
+        <li class="breadcrumb-item"><a asp-action="Topics" asp-route-disciplineId="@Model.Topic.DisciplineId">@Model.Topic.Discipline.Title</a></li>
+        <li class="breadcrumb-item active">@Model.Title: Контрольные вопросы</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1"><i class="bi bi-patch-question text-primary me-2"></i>Контрольные вопросы к лекции</h3>
+        <p class="text-muted mb-0">Лекция: <strong>@Model.Title</strong></p>
+    </div>
+    <a asp-action="CreateQuestion" asp-route-lectureId="@Model.Id" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-1"></i>Добавить вопрос
+    </a>
+</div>
+
+<div class="card shadow-sm border-0 rounded-3">
+    <div class="card-body p-0">
+        @if (!Model.ControlQuestions.Any())
+        {
+            <div class="p-4 text-center text-muted">
+                К этой лекции пока не добавлено ни одного контрольного вопроса.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 5%;">№</th>
+                            <th style="width: 50%;">Текст вопроса</th>
+                            <th>Тип вопроса</th>
+                            <th class="text-center">Макс. балл</th>
+                            <th>Правильный ответ (для автопроверки)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var q in Model.ControlQuestions.OrderBy(q => q.OrderIndex))
+                        {
+                            <tr>
+                                <td>@q.OrderIndex</td>
+                                <td class="fw-semibold">@q.QuestionText</td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">@q.QuestionType</span>
+                                </td>
+                                <td class="text-center">@q.MaxScore</td>
+                                <td class="text-muted small">
+                                    @(string.IsNullOrEmpty(q.CorrectAnswer) ? "Ручная проверка" : q.CorrectAnswer)
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

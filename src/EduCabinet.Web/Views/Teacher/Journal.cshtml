@@ -1,0 +1,197 @@
+@model EduCabinet.Web.ViewModels.GroupJournalViewModel
+@{
+    ViewData["Title"] = "Ведомость успеваемости группы";
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Disciplines">Дисциплины</a></li>
+        <li class="breadcrumb-item active">@Model.Discipline.Title: Ведомость группы</li>
+    </ol>
+</nav>
+
+<div class="card shadow-sm border-0 rounded-3 mb-4 bg-white">
+    <div class="card-body p-4">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h3 class="fw-bold mb-1"><i class="bi bi-table text-primary me-2"></i>Ведомость успеваемости</h3>
+                <p class="text-muted mb-0">Курс: <strong>@Model.Discipline.Title</strong></p>
+            </div>
+            <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex justify-content-md-end align-items-center gap-2">
+                <form method="get" class="d-flex align-items-center gap-2">
+                    <input type="hidden" name="disciplineId" value="@Model.Discipline.Id" />
+                    <select name="groupId" class="form-select" onchange="this.form.submit()">
+                        @foreach (var g in Model.AvailableGroups)
+                        {
+                            <option value="@g.Id" selected="@(g.Id == Model.SelectedGroupId)">
+                                Группа @g.Name
+                            </option>
+                        }
+                    </select>
+                </form>
+
+                @if (Model.SelectedGroupId.HasValue)
+                {
+                    <a asp-action="GroupReport" asp-route-disciplineId="@Model.Discipline.Id" asp-route-groupId="@Model.SelectedGroupId.Value" class="btn btn-outline-dark">
+                        <i class="bi bi-printer me-1"></i>Печать ведомости
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 rounded-3">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold mb-0 text-dark">
+            Сводная матрица освоения лекций: @(Model.SelectedGroup?.Name ?? "Выберите группу")
+        </h5>
+        <div class="small">
+            <span class="badge bg-success me-2">Освоено</span>
+            <span class="badge bg-primary me-2">Доступно</span>
+            <span class="badge bg-secondary">Закрыто</span>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        @if (!Model.StudentRows.Any())
+        {
+            <div class="p-4 text-center text-muted">
+                В выбранной учебной группе нет зарегистрированных студентов.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0 text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-start" style="min-width: 200px;">ФИО студента</th>
+                            @foreach (var lec in Model.OrderedLectures)
+                            {
+                                <th style="min-width: 120px;" title="@lec.Title">
+                                    <div class="small fw-bold">Лекция @lec.OrderIndex</div>
+                                    <div class="text-truncate small text-muted" style="max-width: 110px;">@lec.Title</div>
+                                </th>
+                            }
+                            <th style="min-width: 100px;">Прогресс</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.StudentRows)
+                        {
+                            <tr>
+                                <td class="text-start">
+                                    <div class="fw-bold">@row.Student.FullName</div>
+                                    <small class="text-muted">@row.Student.Email</small>
+                                </td>
+
+                                @foreach (var lec in Model.OrderedLectures)
+                                {
+                                    row.LectureCells.TryGetValue(lec.Id, out var cell);
+                                    <td>
+                                        @if (cell != null)
+                                        {
+                                            @if (cell.IsCompleted)
+                                            {
+                                                <span class="badge bg-success" title="Лекция освоена">
+                                                    <i class="bi bi-check-lg"></i>
+                                                    @(cell.BestTestScore.HasValue ? $"{cell.BestTestScore}%" : "")
+                                                </span>
+                                            }
+                                            else if (cell.IsUnlocked || cell.IsUnlockedManually)
+                                            {
+                                                <div>
+                                                    <span class="badge @(cell.IsUnlockedManually ? "bg-warning text-dark" : "bg-primary")" title="@(cell.IsUnlockedManually ? "Ручной допуск" : "Открыта")">
+                                                        @(cell.BestTestScore.HasValue ? $"{cell.BestTestScore}%" : "Открыта")
+                                                    </span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="d-flex flex-column align-items-center">
+                                                    <span class="badge bg-secondary mb-1" title="Заблокирована последовательностью">
+                                                        <i class="bi bi-lock-fill"></i>
+                                                    </span>
+                                                    <button type="button" class="btn btn-outline-warning btn-sm py-0 px-1" style="font-size: 10px;"
+                                                            onclick="openUnlockModal('@row.Student.Id', '@row.Student.FullName', @lec.Id, '@lec.Title')">
+                                                        Разрешить
+                                                    </button>
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                }
+
+                                <td>
+                                    <div class="fw-bold text-primary">@row.OverallPercent%</div>
+                                    <small class="text-muted">@row.CompletedLecturesCount/@Model.OrderedLectures.Count</small>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal for Manual Unlock -->
+<div class="modal fade" id="unlockModal" tabindex="-1" aria-labelledby="unlockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="ManualUnlock" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="disciplineId" value="@Model.Discipline.Id" />
+                <input type="hidden" name="groupId" value="@Model.SelectedGroupId" />
+                <input type="hidden" id="modalStudentId" name="studentId" value="" />
+                <input type="hidden" id="modalLectureId" name="lectureId" value="" />
+
+                <div class="modal-header bg-warning bg-opacity-25">
+                    <h5 class="modal-title fw-bold" id="unlockModalLabel">
+                        <i class="bi bi-unlock-fill me-2"></i>Ручная разблокировка лекции
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Обучающийся:</label>
+                        <div class="fw-bold fs-6" id="modalStudentName"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Разблокируемая лекция:</label>
+                        <div class="fw-bold fs-6" id="modalLectureTitle"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Причина досрочного открытия материала:</label>
+                        <textarea name="reason" class="form-control" rows="3" placeholder="Укажите обоснование (например: «Перезачёт темы по справке», «Индивидуальный график»)..." required></textarea>
+                        <div class="form-text">Действие будет зафиксировано в системном журнале аудита.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-warning fw-semibold">
+                        <i class="bi bi-unlock me-1"></i>Предоставить доступ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openUnlockModal(studentId, studentName, lectureId, lectureTitle) {
+            document.getElementById('modalStudentId').value = studentId;
+            document.getElementById('modalStudentName').textContent = studentName;
+            document.getElementById('modalLectureId').value = lectureId;
+            document.getElementById('modalLectureTitle').textContent = lectureTitle;
+
+            const modal = new bootstrap.Modal(document.getElementById('unlockModal'));
+            modal.show();
+        }
+    </script>
+}

@@ -1,0 +1,124 @@
+@model EduCabinet.Web.Models.Entities.Discipline
+@{
+    ViewData["Title"] = "Структура дисциплины: " + Model.Title;
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Disciplines">Дисциплины</a></li>
+        <li class="breadcrumb-item active">@Model.Title</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">@Model.Title</h2>
+        <p class="text-muted mb-0">Темы и лекции курса. Настройте порядок изучения и условия открытия материалов.</p>
+    </div>
+    <div>
+        <a asp-action="Journal" asp-route-disciplineId="@Model.Id" class="btn btn-outline-success me-2">
+            <i class="bi bi-journal-text me-1"></i>Ведомость успеваемости
+        </a>
+        <a asp-action="CreateTopic" asp-route-disciplineId="@Model.Id" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Добавить тему
+        </a>
+    </div>
+</div>
+
+@if (!Model.Topics.Any())
+{
+    <div class="alert alert-light text-center py-5 border">
+        <i class="bi bi-folder-plus display-4 text-muted d-block mb-3"></i>
+        <h5>В этой дисциплине пока нет добавленных тем.</h5>
+        <p class="text-muted">Нажмите кнопку «Добавить тему» выше, чтобы начать структурирование курса.</p>
+    </div>
+}
+
+@foreach (var topic in Model.Topics)
+{
+    <div class="card shadow-sm border-0 rounded-3 mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-folder-fill text-warning me-2"></i>@topic.Title
+                </h5>
+                @if (!string.IsNullOrEmpty(topic.Description))
+                {
+                    <small class="text-muted">@topic.Description</small>
+                }
+            </div>
+            <a asp-action="CreateLecture" asp-route-topicId="@topic.Id" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-file-earmark-plus me-1"></i>Добавить лекцию
+            </a>
+        </div>
+
+        <div class="card-body p-0">
+            @if (!topic.Lectures.Any())
+            {
+                <div class="p-3 text-muted text-center small">
+                    В теме ещё нет лекций.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 5%;">№</th>
+                                <th style="width: 40%;">Название лекции</th>
+                                <th>Файл теории</th>
+                                <th class="text-center">Тестирование</th>
+                                <th class="text-end pe-3">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var lec in topic.Lectures)
+                            {
+                                <tr>
+                                    <td>@lec.OrderIndex</td>
+                                    <td>
+                                        <div class="fw-bold">@lec.Title</div>
+                                        <small class="text-muted">@lec.Description</small>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(lec.ContentFilePath))
+                                        {
+                                            <span class="badge bg-light text-dark border">
+                                                <i class="bi bi-file-earmark-pdf text-danger me-1"></i>@(lec.ContentFileName ?? "Документ")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Встроенный текст</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (lec.RequiresTestToUnlockNext)
+                                        {
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                                Порог: @lec.PassingScorePercent%
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">Без теста</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <a asp-action="Questions" asp-route-lectureId="@lec.Id" class="btn btn-outline-secondary btn-sm me-1" title="Контрольные вопросы">
+                                            <i class="bi bi-patch-question me-1"></i>Вопросы (@lec.ControlQuestions.Count)
+                                        </a>
+                                        <a asp-controller="Student" asp-action="Lecture" asp-route-id="@lec.Id" class="btn btn-outline-primary btn-sm" title="Предпросмотр глазами студента" target="_blank">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}

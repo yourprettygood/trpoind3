@@ -1,0 +1,179 @@
+@model EduCabinet.Web.ViewModels.GroupJournalViewModel
+@{
+    ViewData["Title"] = "Экзаменационная ведомость группы " + Model.SelectedGroup?.Name;
+    var reportDate = DateTime.Now.ToString("«dd» MMMM yyyy г.", new System.Globalization.CultureInfo("ru-RU"));
+    var docNumber = $"ЭВ-{Model.Discipline.Id}-{Model.SelectedGroupId}/{DateTime.Now.Year}";
+}
+
+<style>
+    /* Strict compliance with GEMINI.md Rule 2: @@media print escaping in Razor */
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+        body {
+            background: #fff !important;
+            color: #000 !important;
+            font-family: 'Times New Roman', serif !important;
+            font-size: 10pt !important;
+        }
+        .official-document {
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+        .table-bordered th, .table-bordered td {
+            border: 1px solid #000 !important;
+        }
+    }
+
+    .official-header {
+        border-bottom: 2px solid #000;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    .stamp-box {
+        width: 100px;
+        height: 100px;
+        border: 2px dashed #666;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #666;
+        font-weight: bold;
+        margin: 0 auto;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <a asp-action="Journal" asp-route-disciplineId="@Model.Discipline.Id" asp-route-groupId="@Model.SelectedGroupId" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Вернуться в журнал
+    </a>
+    <button onclick="window.print()" class="btn btn-primary px-4 fw-semibold">
+        <i class="bi bi-printer me-1"></i>Печать ведомости
+    </button>
+</div>
+
+<div class="card shadow-sm border p-4 bg-white official-document mx-auto">
+    <!-- Official Header -->
+    <div class="official-header text-center">
+        <div class="fw-bold text-uppercase small">Министерство образования и науки</div>
+        <div class="fw-bold fs-6">ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ ПРОФЕССИОНАЛЬНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ</div>
+        <div class="text-muted small">Отделение информационных технологий | Учебная часть</div>
+    </div>
+
+    <div class="text-center my-3">
+        <h4 class="fw-bold text-uppercase mb-1">СВОДНАЯ ЗАЧЁТНО-ЭКЗАМЕНАЦИОННАЯ ВЕДОМОСТЬ</h4>
+        <div class="text-muted small">Регистрационный № <strong>@docNumber</strong> от @reportDate</div>
+    </div>
+
+    <div class="row mb-3 small">
+        <div class="col-6">
+            <div>Дисциплина: <strong>@Model.Discipline.Title</strong></div>
+            <div>Преподаватель: <strong>@(Model.Discipline.Teacher?.FullName ?? "Иванов С.П.")</strong></div>
+        </div>
+        <div class="col-6 text-end">
+            <div>Учебная группа: <strong>@(Model.SelectedGroup?.Name ?? "ИС-31")</strong></div>
+            <div>Семестр / Курс: <strong>@(Model.SelectedGroup?.CourseNumber ?? 3) курс</strong></div>
+        </div>
+    </div>
+
+    <div class="table-responsive mb-4">
+        <table class="table table-bordered table-sm align-middle text-center" style="border-color: #000;">
+            <thead style="background-color: #f2f2f2;">
+                <tr>
+                    <th style="width: 4%;">№</th>
+                    <th style="width: 30%;" class="text-start">ФИО студента</th>
+                    @foreach (var lec in Model.OrderedLectures)
+                    {
+                        <th style="font-size: 8pt;">Лекция @lec.OrderIndex</th>
+                    }
+                    <th style="width: 10%;">Освоено</th>
+                    <th style="width: 14%;">Итоговая оценка</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ int stIdx = 1; }
+                @foreach (var row in Model.StudentRows)
+                {
+                    <tr>
+                        <td>@(stIdx++)</td>
+                        <td class="text-start ps-2 fw-semibold">@row.Student.FullName</td>
+
+                        @foreach (var lec in Model.OrderedLectures)
+                        {
+                            row.LectureCells.TryGetValue(lec.Id, out var cell);
+                            <td class="small">
+                                @if (cell?.IsCompleted == true)
+                                {
+                                    <span class="fw-bold text-success">@(cell.BestTestScore.HasValue ? $"{cell.BestTestScore}%" : "Зач.")</span>
+                                }
+                                else if (cell?.IsUnlocked == true)
+                                {
+                                    <span class="text-muted">В проц.</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Закр.</span>
+                                }
+                            </td>
+                        }
+
+                        <td class="fw-bold">@row.OverallPercent%</td>
+                        <td class="fw-bold">
+                            @if (row.OverallPercent >= 90)
+                            {
+                                <span>Отлично (5)</span>
+                            }
+                            else if (row.OverallPercent >= 75)
+                            {
+                                <span>Хорошо (4)</span>
+                            }
+                            else if (row.OverallPercent >= 60)
+                            {
+                                <span>Удовл. (3)</span>
+                            }
+                            else
+                            {
+                                <span class="text-danger">Не зачтено</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="small text-muted mb-4">
+        Всего студентов в ведомости: <strong>@Model.StudentRows.Count</strong> чел.
+        Аттестовано: <strong>@Model.StudentRows.Count(r => r.OverallPercent >= 60)</strong> чел.
+        Не аттестовано: <strong>@Model.StudentRows.Count(r => r.OverallPercent < 60)</strong> чел.
+    </div>
+
+    <!-- Signatures and Official Stamp -->
+    <div class="row align-items-end mt-4 pt-3 border-top">
+        <div class="col-4 text-center">
+            <div class="border-bottom border-dark pb-1 mb-1">
+                @(Model.Discipline.Teacher?.FullName ?? "Иванов С.П.")
+            </div>
+            <div class="small text-muted">Преподаватель (экзаменатор) / Подпись</div>
+        </div>
+
+        <div class="col-4 text-center">
+            <div class="stamp-box">
+                <span>М. П.</span>
+            </div>
+        </div>
+
+        <div class="col-4 text-center">
+            <div class="border-bottom border-dark pb-1 mb-1">
+                Сидоров В.Н.
+            </div>
+            <div class="small text-muted">Декан / Зав. отделением / Подпись</div>
+        </div>
+    </div>
+</div>

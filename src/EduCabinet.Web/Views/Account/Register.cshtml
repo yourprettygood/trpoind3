@@ -1,0 +1,67 @@
+@model EduCabinet.Web.ViewModels.RegisterViewModel
+@{
+    ViewData["Title"] = "Регистрация студента";
+    var groups = ViewBag.Groups as List<EduCabinet.Web.Models.Entities.StudentGroup> ?? new();
+}
+
+<div class="row justify-content-center mt-3">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-primary text-white text-center py-3">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-person-plus me-2"></i>Регистрация нового студента</h4>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Register" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="FullName" class="form-label fw-semibold"></label>
+                        <input asp-for="FullName" class="form-control" placeholder="Иванов Иван Иванович" />
+                        <span asp-validation-for="FullName" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label fw-semibold"></label>
+                        <input asp-for="Email" class="form-control" placeholder="student@example.com" />
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="GroupId" class="form-label fw-semibold">Учебная группа</label>
+                        <select asp-for="GroupId" class="form-select">
+                            <option value="">-- Выберите учебную группу --</option>
+                            @foreach (var g in groups)
+                            {
+                                <option value="@g.Id">@g.Name (@g.CourseNumber курс)</option>
+                            }
+                        </select>
+                        <span asp-validation-for="GroupId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="Password" class="form-label fw-semibold"></label>
+                            <input asp-for="Password" class="form-control" placeholder="••••••••" />
+                            <span asp-validation-for="Password" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="ConfirmPassword" class="form-label fw-semibold"></label>
+                            <input asp-for="ConfirmPassword" class="form-control" placeholder="••••••••" />
+                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold mt-2">
+                        <i class="bi bi-check2-circle me-1"></i>Зарегистрироваться
+                    </button>
+                </form>
+
+                <div class="text-center mt-3">
+                    <span class="text-muted">Уже есть аккаунт?</span>
+                    <a asp-action="Login" class="text-decoration-none fw-semibold">Войти</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

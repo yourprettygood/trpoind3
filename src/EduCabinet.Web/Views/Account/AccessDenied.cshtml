@@ -1,0 +1,25 @@
+@{
+    ViewData["Title"] = "Доступ запрещён (403 Forbidden)";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 text-center">
+        <div class="card shadow-sm border-danger p-4 rounded-3">
+            <div class="card-body">
+                <i class="bi bi-shield-x text-danger display-1 mb-3"></i>
+                <h2 class="text-danger fw-bold">403 — Доступ запрещён</h2>
+                <p class="text-muted mt-3">
+                    У вашей учётной записи недостаточно прав для просмотра данного раздела или материал заблокирован правилами последовательного изучения.
+                </p>
+                <div class="mt-4">
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-primary me-2">
+                        <i class="bi bi-house-door me-1"></i>На главную
+                    </a>
+                    <a asp-controller="Account" asp-action="Login" class="btn btn-outline-secondary">
+                        <i class="bi bi-person-circle me-1"></i>Сменить пользователя
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

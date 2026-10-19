@@ -1,0 +1,118 @@
+@model EduCabinet.Web.Models.Entities.Test
+@{
+    ViewData["Title"] = Model.Title;
+    var attempt = ViewBag.Attempt as EduCabinet.Web.Models.Entities.TestAttempt;
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0 fw-bold"><i class="bi bi-ui-checks me-2"></i>@Model.Title</h4>
+                    <small>Лекция: @Model.Lecture.Title</small>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-light text-dark fs-6">Попытка №@(attempt?.AttemptNumber ?? 1)</span>
+                </div>
+            </div>
+
+            <div class="card-body p-4">
+                <div class="alert alert-info d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <i class="bi bi-info-circle me-2"></i>
+                        Для успешной сдачи необходимо набрать не менее <strong>@Model.PassingScorePercent%</strong> верных ответов.
+                    </div>
+                    @if (Model.TimeLimitMinutes.HasValue)
+                    {
+                        <div class="badge bg-danger fs-6 p-2">
+                            <i class="bi bi-clock me-1"></i>Ограничение: @Model.TimeLimitMinutes мин.
+                        </div>
+                    }
+                </div>
+
+                <form asp-action="SubmitTest" method="post" id="testForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="attemptId" value="@(attempt?.Id ?? 0)" />
+                    <input type="hidden" name="testId" value="@Model.Id" />
+
+                    @for (int i = 0; i < Model.Questions.Count; i++)
+                    {
+                        var q = Model.Questions.ElementAt(i);
+                        <div class="card border mb-4 p-4 rounded-3 shadow-none">
+                            <h5 class="fw-bold mb-3 text-dark">
+                                Вопрос @(i + 1). @q.QuestionText
+                                <span class="badge bg-secondary fs-6 ms-2">@q.Points баллов</span>
+                            </h5>
+
+                            @if (q.QuestionType == EduCabinet.Web.Models.Entities.QuestionType.SingleChoice)
+                            {
+                                <div class="d-flex flex-column gap-2">
+                                    @foreach (var opt in q.Options)
+                                    {
+                                        <div class="form-check p-2 border rounded-2 ps-4">
+                                            <input class="form-check-input" type="radio" name="question_@q.Id" id="opt_@opt.Id" value="@opt.Id" required />
+                                            <label class="form-check-label w-100" for="opt_@opt.Id">
+                                                @opt.OptionText
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else if (q.QuestionType == EduCabinet.Web.Models.Entities.QuestionType.MultipleChoice)
+                            {
+                                <p class="text-muted small mb-2"><i class="bi bi-check-all me-1"></i>Выберите все правильные варианты:</p>
+                                <div class="d-flex flex-column gap-2">
+                                    @foreach (var opt in q.Options)
+                                    {
+                                        <div class="form-check p-2 border rounded-2 ps-4">
+                                            <input class="form-check-input multi-opt" type="checkbox" data-qid="@q.Id" id="opt_@opt.Id" value="@opt.Id" />
+                                            <label class="form-check-label w-100" for="opt_@opt.Id">
+                                                @opt.OptionText
+                                            </label>
+                                        </div>
+                                    }
+                                    <input type="hidden" name="question_@q.Id" id="multi_hidden_@q.Id" value="" />
+                                </div>
+                            }
+                            else // Short answer
+                            {
+                                <div class="mt-2">
+                                    <input type="text" name="question_@q.Id" class="form-control" placeholder="Введите ваш краткий ответ..." required />
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <a asp-action="Lecture" asp-route-id="@Model.LectureId" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-1"></i>Отмена
+                        </a>
+                        <button type="submit" class="btn btn-success px-4 py-2 fw-semibold fs-5">
+                            <i class="bi bi-check2-circle me-1"></i>Завершить тестирование и узнать результат
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Aggregate multi-choice checkboxes into comma-separated hidden inputs
+        document.getElementById('testForm').addEventListener('submit', function () {
+            const multiInputs = document.querySelectorAll('.multi-opt');
+            const grouped = {};
+            multiInputs.forEach(cb => {
+                const qid = cb.getAttribute('data-qid');
+                if (!grouped[qid]) grouped[qid] = [];
+                if (cb.checked) grouped[qid].push(cb.value);
+            });
+            for (const qid in grouped) {
+                const hidden = document.getElementById('multi_hidden_' + qid);
+                if (hidden) hidden.value = grouped[qid].join(',');
+            }
+        });
+    </script>
+}

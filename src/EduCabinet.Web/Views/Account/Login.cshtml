@@ -1,0 +1,96 @@
+@model EduCabinet.Web.ViewModels.LoginViewModel
+@{
+    ViewData["Title"] = "Авторизация в системе";
+}
+
+<div class="row justify-content-center mt-3">
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-header bg-primary text-white text-center py-3">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-box-arrow-in-right me-2"></i>Вход в личный кабинет</h4>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Login" asp-route-returnurl="@ViewData["ReturnUrl"]" method="post">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label fw-semibold"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            <input asp-for="Email" class="form-control" placeholder="user@cabinet.local" autofocus />
+                        </div>
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label fw-semibold"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-key"></i></span>
+                            <input asp-for="Password" class="form-control" placeholder="••••••••" />
+                        </div>
+                        <span asp-validation-for="Password" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input asp-for="RememberMe" class="form-check-input" />
+                        <label asp-for="RememberMe" class="form-check-label"></label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Войти
+                    </button>
+                </form>
+
+                <div class="text-center mt-3">
+                    <span class="text-muted">Нет учётной записи?</span>
+                    <a asp-action="Register" class="text-decoration-none fw-semibold">Зарегистрироваться</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Демо-доступ (GEMINI.md Rule 4) -->
+        <div class="card border-info shadow-sm rounded-3">
+            <div class="card-header bg-info bg-opacity-10 text-dark fw-bold d-flex align-items-center">
+                <i class="bi bi-stars text-primary me-2 fs-5"></i>
+                <span>Быстрый демонстрационный вход (1 клик)</span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Для быстрой проверки функционала и ролевой модели (RBAC) воспользуйтесь готовыми тестовыми профилями:
+                </p>
+                <div class="d-grid gap-2">
+                    <form asp-action="QuickLogin" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="role" value="student" />
+                        <button type="submit" class="btn btn-outline-success w-100 text-start d-flex justify-content-between align-items-center py-2">
+                            <span><i class="bi bi-person-fill me-2"></i><strong>Студент</strong> (Даниил Алексеев)</span>
+                            <span class="badge bg-success">student@cabinet.local</span>
+                        </button>
+                    </form>
+
+                    <form asp-action="QuickLogin" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="role" value="teacher" />
+                        <button type="submit" class="btn btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center py-2">
+                            <span><i class="bi bi-briefcase-fill me-2"></i><strong>Преподаватель</strong> (С.П. Иванов)</span>
+                            <span class="badge bg-primary">teacher@cabinet.local</span>
+                        </button>
+                    </form>
+
+                    <form asp-action="QuickLogin" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="role" value="admin" />
+                        <button type="submit" class="btn btn-outline-dark w-100 text-start d-flex justify-content-between align-items-center py-2">
+                            <span><i class="bi bi-shield-lock-fill me-2"></i><strong>Администратор</strong></span>
+                            <span class="badge bg-dark">admin@cabinet.local</span>
+                        </button>
+                    </form>
+                </div>
+                <div class="mt-3 p-2 bg-light rounded text-center small text-muted">
+                    Общий тестовый пароль для всех демо-пользователей: <code>Student123!</code> / <code>Teacher123!</code> / <code>Admin123!</code>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

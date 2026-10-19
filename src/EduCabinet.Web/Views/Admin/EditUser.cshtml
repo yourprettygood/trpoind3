@@ -1,0 +1,60 @@
+@model EduCabinet.Web.ViewModels.EditUserViewModel
+@{
+    ViewData["Title"] = "Редактирование пользователя";
+    var groups = ViewBag.Groups as List<EduCabinet.Web.Models.Entities.StudentGroup> ?? new();
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-dark text-white py-3">
+                <h4 class="mb-0 fw-bold"><i class="bi bi-person-gear me-2"></i>Редактирование профиля пользователя</h4>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="EditUser" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Id" />
+
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label text-muted small">Email (логин)</label>
+                        <input asp-for="Email" class="form-control" readonly />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="FullName" class="form-label fw-semibold">ФИО пользователя</label>
+                        <input asp-for="FullName" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Role" class="form-label fw-semibold">Роль в системе (RBAC)</label>
+                        <select asp-for="Role" class="form-select">
+                            <option value="Student">Студент</option>
+                            <option value="Teacher">Преподаватель</option>
+                            <option value="Administrator">Администратор</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="GroupId" class="form-label fw-semibold">Учебная группа (для студентов)</label>
+                        <select asp-for="GroupId" class="form-select">
+                            <option value="">-- Без привязки к группе --</option>
+                            @foreach (var g in groups)
+                            {
+                                <option value="@g.Id">@g.Name (@g.CourseNumber курс)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="d-flex justify-content-between pt-2 border-top">
+                        <a asp-action="Users" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Отмена
+                        </a>
+                        <button type="submit" class="btn btn-dark px-4">
+                            <i class="bi bi-check2 me-1"></i>Сохранить изменения
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

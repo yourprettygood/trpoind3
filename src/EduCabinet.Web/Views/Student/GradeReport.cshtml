@@ -1,0 +1,151 @@
+@model EduCabinet.Web.ViewModels.StudentGradeBookViewModel
+@{
+    ViewData["Title"] = "Академическая справка успеваемости";
+    var reportDate = DateTime.Now.ToString("«dd» MMMM yyyy г.", new System.Globalization.CultureInfo("ru-RU"));
+    var docNumber = $"АС-{Model.Student.Id.Substring(0, Math.Min(6, Model.Student.Id.Length)).ToUpper()}/{DateTime.Now.Year}";
+}
+
+<style>
+    /* Strict compliance with GEMINI.md Rule 2: @@media print escaping in Razor */
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+        body {
+            background: #fff !important;
+            color: #000 !important;
+            font-family: 'Times New Roman', serif !important;
+            font-size: 11pt !important;
+        }
+        .official-document {
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+    }
+
+    .official-header {
+        border-bottom: 2px solid #000;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+    }
+    .stamp-box {
+        width: 110px;
+        height: 110px;
+        border: 2px dashed #666;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #666;
+        font-weight: bold;
+        margin: 0 auto;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <a asp-action="GradeBook" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Вернуться в кабинет
+    </a>
+    <button onclick="window.print()" class="btn btn-primary px-4 fw-semibold">
+        <i class="bi bi-printer me-1"></i>Печать академической справки
+    </button>
+</div>
+
+<div class="card shadow-sm border p-5 bg-white official-document mx-auto" style="max-width: 900px;">
+    <!-- Official Letterhead -->
+    <div class="official-header text-center">
+        <div class="fw-bold text-uppercase fs-6">Министерство образования и науки</div>
+        <div class="fw-bold fs-5">ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ ПРОФЕССИОНАЛЬНОЕ ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ</div>
+        <div class="text-muted small">Кафедра информационных технологий и программирования</div>
+    </div>
+
+    <div class="text-center my-4">
+        <h4 class="fw-bold text-uppercase mb-1">АКАДЕМИЧЕСКАЯ СПРАВКА ОБ УСПЕВАЕМОСТИ</h4>
+        <div class="text-muted">Регистрационный № <strong>@docNumber</strong> от @reportDate</div>
+    </div>
+
+    <div class="mb-4">
+        <p class="mb-1">Настоящая справка выдана обучающемуся: <strong>@Model.Student.FullName</strong></p>
+        <p class="mb-1">Учебная группа: <strong>@(Model.Group?.Name ?? "ИС-31")</strong>, курс: <strong>@(Model.Group?.CourseNumber ?? 3)</strong></p>
+        <p class="mb-0">Форма обучения: <strong>Очная</strong>. Специальность: <strong>«Информационные системы и программирование»</strong></p>
+    </div>
+
+    <div class="mb-4">
+        <h6 class="fw-bold text-uppercase mb-2">Результаты текущего контроля и освоения дисциплин:</h6>
+        <table class="table table-bordered table-sm align-middle text-center" style="border-color: #000;">
+            <thead style="background-color: #f2f2f2;">
+                <tr>
+                    <th style="width: 5%;">№</th>
+                    <th style="width: 45%;" class="text-start">Учебная дисциплина / Лекция</th>
+                    <th style="width: 15%;">Статус</th>
+                    <th style="width: 15%;">Балл теста (%)</th>
+                    <th style="width: 20%;">Отметка</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ int counter = 1; }
+                @foreach (var disc in Model.Disciplines)
+                {
+                    <tr style="background-color: #fafafa; font-weight: bold;">
+                        <td colspan="2" class="text-start ps-2">@disc.DisciplineTitle</td>
+                        <td>@(disc.ProgressPercent)%</td>
+                        <td>—</td>
+                        <td>@(disc.ProgressPercent >= 70 ? "Зачтено" : "В процессе")</td>
+                    </tr>
+                    @foreach (var lec in disc.LectureGrades)
+                    {
+                        <tr>
+                            <td>@(counter++)</td>
+                            <td class="text-start ps-3 small">@lec.LectureTitle</td>
+                            <td class="small">@(lec.IsCompleted ? "Освоено" : "Не завершено")</td>
+                            <td class="small fw-semibold">@(lec.BestTestScore.HasValue ? $"{lec.BestTestScore}%" : "—")</td>
+                            <td class="small">
+                                @if (lec.TestPassed == true)
+                                {
+                                    <span class="text-success fw-bold">Сдано</span>
+                                }
+                                else if (lec.BestTestScore.HasValue)
+                                {
+                                    <span class="text-danger">Не сдано</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Не сдавался</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <p class="small text-muted mb-5">
+        Справка сформирована автоматически в системе «Электронный учебный кабинет преподавателя и студента» и подтверждает выполнение индивидуального плана освоения учебных тем.
+    </p>
+
+    <!-- Signatures and Official Stamp -->
+    <div class="row align-items-end mt-4 pt-4 border-top">
+        <div class="col-4 text-center">
+            <div class="border-bottom border-dark pb-1 mb-1">
+                Иванов С.П.
+            </div>
+            <div class="small text-muted">Преподаватель дисциплины / Подпись</div>
+        </div>
+
+        <div class="col-4 text-center">
+            <div class="stamp-box">
+                <span>М. П.</span>
+            </div>
+        </div>
+
+        <div class="col-4 text-center">
+            <div class="border-bottom border-dark pb-1 mb-1">
+                Петров А.В.
+            </div>
+            <div class="small text-muted">Заведующий отделением / Подпись</div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/EduCabinet.Web/EduCabinet.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EduCabinet.Tests/EduCabinet.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,58 @@
+@model List<EduCabinet.Web.ViewModels.StudentDisciplineCardViewModel>
+@{
+    ViewData["Title"] = "Мои учебные дисциплины";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-book-half text-primary me-2"></i>Изучаемые дисциплины</h2>
+        <p class="text-muted mb-0">Выберите дисциплину для последовательного изучения лекций и прохождения тестирования.</p>
+    </div>
+    <a asp-action="GradeBook" class="btn btn-outline-primary">
+        <i class="bi bi-award me-1"></i>Моя зачётная книжка
+    </a>
+</div>
+
+<div class="row g-4">
+    @if (!Model.Any())
+    {
+        <div class="col-12">
+            <div class="alert alert-info text-center py-4">
+                <i class="bi bi-info-circle display-4 d-block mb-2"></i>
+                <h5>На данный момент нет опубликованных дисциплин.</h5>
+            </div>
+        </div>
+    }
+    @foreach (var d in Model)
+    {
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm border-0 rounded-3 d-flex flex-column">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge bg-primary bg-opacity-10 text-primary fw-semibold px-2 py-1">Дисциплина</span>
+                        <span class="badge bg-secondary">@d.CompletedLectures / @d.TotalLectures лекций</span>
+                    </div>
+                    <h5 class="card-title fw-bold text-dark mb-2">@d.Title</h5>
+                    <p class="card-text text-muted small flex-grow-1">@d.Description</p>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between text-muted small mb-1">
+                            <span>Прогресс освоения</span>
+                            <span class="fw-bold text-primary">@d.ProgressPercent%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: @d.ProgressPercent%" aria-valuenow="@d.ProgressPercent" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                        <small class="text-muted"><i class="bi bi-person me-1"></i>@d.TeacherName</small>
+                        <a asp-action="Discipline" asp-route-id="@d.Id" class="btn btn-primary btn-sm px-3">
+                            Перейти <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

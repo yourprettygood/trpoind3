@@ -1,0 +1,269 @@
+@model EduCabinet.Web.ViewModels.StudentLectureViewViewModel
+@{
+    ViewData["Title"] = Model.Lecture.Title;
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">Дисциплины</a></li>
+        <li class="breadcrumb-item">
+            <a asp-action="Discipline" asp-route-id="@Model.Lecture.Topic.DisciplineId">
+                @Model.Lecture.Topic.Discipline.Title
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.Lecture.Title</li>
+    </ol>
+</nav>
+
+@if (!Model.IsUnlocked)
+{
+    <div class="card border-danger shadow-sm rounded-3 mb-4">
+        <div class="card-body p-4 text-center">
+            <i class="bi bi-shield-lock-fill text-danger display-3 mb-3 d-block"></i>
+            <h3 class="fw-bold text-danger">Лекция временно заблокирована</h3>
+            <p class="fs-5 text-muted mb-4">
+                @Model.LockReason
+            </p>
+            <a asp-action="Discipline" asp-route-id="@Model.Lecture.Topic.DisciplineId" class="btn btn-primary px-4 py-2">
+                <i class="bi bi-arrow-left me-1"></i>Вернуться к программе курса
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Header -->
+    <div class="card shadow-sm border-0 rounded-3 mb-4 bg-white">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="badge bg-primary bg-opacity-10 text-primary mb-2">@Model.Lecture.Topic.Title</span>
+                    <h2 class="fw-bold mb-2">@Model.Lecture.Title</h2>
+                    <p class="text-muted mb-0">@Model.Lecture.Description</p>
+                </div>
+                <div class="text-end">
+                    @if (Model.Progress?.IsCompleted == true)
+                    {
+                        <span class="badge bg-success fs-6 px-3 py-2">
+                            <i class="bi bi-check-circle me-1"></i>Лекция освоена
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                            <i class="bi bi-hourglass-split me-1"></i>В процессе изучения
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. Theoretical Material -->
+    <div class="card shadow-sm border-0 rounded-3 mb-4">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-journal-text me-2"></i>1. Теоретический материал</h5>
+            @if (!string.IsNullOrEmpty(Model.Lecture.ContentFilePath))
+            {
+                <a asp-action="DownloadMaterial" asp-route-id="@Model.Lecture.Id" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-download me-1"></i>Скачать файл (@(Model.Lecture.ContentFileName ?? "Документ"))
+                </a>
+            }
+        </div>
+        <div class="card-body p-4">
+            @if (!string.IsNullOrEmpty(Model.Lecture.ContentHtml))
+            {
+                <div class="theory-content">
+                    @Html.Raw(Model.Lecture.ContentHtml)
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-light text-muted">
+                    Теоретический материал размещен в прикреплённом файле. Вы можете скачать его по кнопке выше.
+                </div>
+            }
+
+            <div class="alert alert-success d-flex align-items-center mt-4 mb-0" role="alert">
+                <i class="bi bi-check2-circle fs-4 me-3"></i>
+                <div>
+                    <strong>Теоретический материал прочитан!</strong> Отметка сохранена в вашем учебном профиле.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Control Questions -->
+    @if (Model.Questions.Any())
+    {
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-header bg-white py-3">
+                <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-patch-question me-2"></i>2. Контрольные вопросы к лекции</h5>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">
+                    Ответьте на контрольные вопросы для проверки первичного усвоения материала. Развёрнутые ответы оцениваются преподавателем.
+                </p>
+
+                <form asp-action="AnswerQuestions" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="lectureId" value="@Model.Lecture.Id" />
+
+                    @for (int i = 0; i < Model.Questions.Count; i++)
+                    {
+                        var q = Model.Questions[i];
+                        var answer = Model.ExistingAnswers.FirstOrDefault(a => a.QuestionId == q.Id);
+
+                        <div class="card border mb-3 p-3 rounded-2 bg-light bg-opacity-50">
+                            <h6 class="fw-bold text-dark mb-2">
+                                Вопрос @(i + 1). @q.QuestionText
+                            </h6>
+
+                            <div class="mb-2">
+                                @if (q.QuestionType == QuestionType.DetailedAnswer)
+                                {
+                                    <textarea name="question_@q.Id" class="form-control" rows="3" placeholder="Введите развёрнутый ответ...">@(answer?.StudentAnswerText)</textarea>
+                                }
+                                else if (q.QuestionType == QuestionType.SingleChoice && !string.IsNullOrEmpty(q.CorrectAnswer))
+                                {
+                                    <input type="text" name="question_@q.Id" class="form-control" value="@(answer?.StudentAnswerText)" placeholder="Введите ваш вариант ответа..." />
+                                }
+                                else
+                                {
+                                    <input type="text" name="question_@q.Id" class="form-control" value="@(answer?.StudentAnswerText)" placeholder="Краткий ответ..." />
+                                }
+                            </div>
+
+                            @if (answer != null)
+                            {
+                                <div class="p-2 rounded bg-white border mt-2 small">
+                                    <div class="d-flex justify-content-between text-muted mb-1">
+                                        <span>Отправлено: @answer.SubmittedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                                        @if (answer.IsGraded)
+                                        {
+                                            <span class="badge @(answer.TeacherScore > 0 ? "bg-success" : "bg-danger")">
+                                                Оценка: @answer.TeacherScore / @q.MaxScore баллов
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">Ожидает проверки преподавателем</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(answer.TeacherFeedback))
+                                    {
+                                        <div class="text-primary mt-1">
+                                            <strong>Комментарий преподавателя:</strong> @answer.TeacherFeedback
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold">
+                        <i class="bi bi-send me-1"></i>Сохранить ответы на контрольные вопросы
+                    </button>
+                </form>
+            </div>
+        </div>
+    }
+
+    <!-- 3. Testing Section -->
+    @if (Model.Test != null)
+    {
+        var test = Model.Test;
+        int remainingAttempts = test.MaxAttempts - Model.TestAttempts.Count(a => a.Status == AttemptStatus.Completed);
+        if (remainingAttempts < 0) remainingAttempts = 0;
+        bool hasPassedAttempt = Model.TestAttempts.Any(a => a.IsPassed);
+
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-ui-checks me-2"></i>3. Тестирование по лекции</h5>
+                <span class="badge bg-light text-dark border">Проходной балл: @test.PassingScorePercent%</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="row align-items-center mb-4">
+                    <div class="col-md-8">
+                        <h5 class="fw-bold text-dark mb-1">@test.Title</h5>
+                        <p class="text-muted small mb-0">
+                            Количество попыток: <strong>@test.MaxAttempts</strong> | Осталось попыток: <strong>@remainingAttempts</strong>
+                            @if (test.TimeLimitMinutes.HasValue)
+                            {
+                                <span> | Ограничение времени: <strong>@test.TimeLimitMinutes минут</strong></span>
+                            }
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        @if (hasPassedAttempt)
+                        {
+                            <span class="badge bg-success fs-6 p-2 mb-2 d-inline-block">
+                                <i class="bi bi-trophy-fill me-1"></i>Тест успешно сдан!
+                            </span>
+                        }
+
+                        @if (remainingAttempts > 0)
+                        {
+                            <div>
+                                <a asp-action="TakeTest" asp-route-testId="@test.Id" class="btn btn-success px-4 py-2 fw-semibold">
+                                    <i class="bi bi-play-circle me-1"></i>@(Model.TestAttempts.Any() ? "Пройти повторно" : "Начать тест")
+                                </a>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-danger small fw-semibold">
+                                Все попытки исчерпаны.
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (Model.TestAttempts.Any())
+                {
+                    <h6 class="fw-bold text-secondary mb-2">История попыток:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm align-middle text-center mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Попытка №</th>
+                                    <th>Дата и время</th>
+                                    <th>Баллы</th>
+                                    <th>Процент</th>
+                                    <th>Результат</th>
+                                    <th>Действие</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var att in Model.TestAttempts)
+                                {
+                                    <tr>
+                                        <td>@att.AttemptNumber</td>
+                                        <td>@att.StartedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                        <td>@att.TotalPoints / @att.MaxPoints</td>
+                                        <td><strong>@att.ScorePercent%</strong></td>
+                                        <td>
+                                            @if (att.IsPassed)
+                                            {
+                                                <span class="badge bg-success">Пройден</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-danger">Не пройден</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <a asp-action="TestResult" asp-route-attemptId="@att.Id" class="btn btn-outline-secondary btn-sm">
+                                                Смотреть итог
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
