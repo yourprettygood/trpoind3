@@ -1,0 +1,40 @@
+# Configuration and rules
+GEMINI.md
+assignment_text.txt
+*.docx
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleasePublic/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Uploaded lecture materials (persisted runtime files)
+src/EduCabinet.Web/wwwroot/uploads/*
+!src/EduCabinet.Web/wwwroot/uploads/.gitkeep
