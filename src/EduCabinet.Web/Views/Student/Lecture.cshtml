@@ -15,49 +15,65 @@
     </ol>
 </nav>
 
-@if (!Model.IsUnlocked)
-{
-    <div class="card border-danger shadow-sm rounded-3 mb-4">
-        <div class="card-body p-4 text-center">
-            <i class="bi bi-shield-lock-fill text-danger display-3 mb-3 d-block"></i>
-            <h3 class="fw-bold text-danger">Лекция временно заблокирована</h3>
-            <p class="fs-5 text-muted mb-4">
-                @Model.LockReason
-            </p>
-            <a asp-action="Discipline" asp-route-id="@Model.Lecture.Topic.DisciplineId" class="btn btn-primary px-4 py-2">
-                <i class="bi bi-arrow-left me-1"></i>Вернуться к программе курса
-            </a>
-        </div>
-    </div>
-}
-else
-{
-    <!-- Header -->
-    <div class="card shadow-sm border-0 rounded-3 mb-4 bg-white">
-        <div class="card-body p-4">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <span class="badge bg-primary bg-opacity-10 text-primary mb-2">@Model.Lecture.Topic.Title</span>
-                    <h2 class="fw-bold mb-2">@Model.Lecture.Title</h2>
-                    <p class="text-muted mb-0">@Model.Lecture.Description</p>
-                </div>
-                <div class="text-end">
-                    @if (Model.Progress?.IsCompleted == true)
+<!-- Header -->
+<div class="card shadow-sm border-0 rounded-3 mb-4 bg-white">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <span class="badge bg-primary bg-opacity-10 text-primary mb-2">@Model.Lecture.Topic.Title</span>
+                <h2 class="fw-bold mb-2">@Model.Lecture.Title</h2>
+                <p class="text-muted mb-0">@Model.Lecture.Description</p>
+                @if (Model.Lecture.Deadline.HasValue)
+                {
+                    <div class="mt-2 text-muted small">
+                        <i class="bi bi-calendar-event me-1"></i>Срок сдачи: <strong>@Model.Lecture.Deadline.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</strong>
+                    </div>
+                }
+            </div>
+            <div class="text-end">
+                @if (Model.Progress?.FinalGrade.HasValue == true)
+                {
+                    string gradeBadge = Model.Progress.FinalGrade.Value switch
                     {
-                        <span class="badge bg-success fs-6 px-3 py-2">
-                            <i class="bi bi-check-circle me-1"></i>Лекция освоена
-                        </span>
-                    }
-                    else
+                        5 => "bg-success",
+                        4 => "bg-primary",
+                        3 => "bg-warning text-dark",
+                        _ => "bg-danger"
+                    };
+                    <span class="badge @gradeBadge fs-5 px-3 py-2 d-block mb-1">
+                        Оценка: @Model.Progress.FinalGrade.Value
+                    </span>
+                    @if (!string.IsNullOrEmpty(Model.Progress.TeacherGradeComment))
                     {
-                        <span class="badge bg-warning text-dark fs-6 px-3 py-2">
-                            <i class="bi bi-hourglass-split me-1"></i>В процессе изучения
-                        </span>
+                        <small class="text-muted d-block">@Model.Progress.TeacherGradeComment</small>
                     }
-                </div>
+                }
+                else if (Model.Progress?.IsOverdue == true)
+                {
+                    <span class="badge bg-danger fs-5 px-3 py-2 d-block mb-1">
+                        Оценка: 2 (Просрочено)
+                    </span>
+                    <small class="text-danger d-block">Срок сдачи истёк</small>
+                }
+                else
+                {
+                    <span class="badge bg-light text-dark border fs-6 px-3 py-2">
+                        <i class="bi bi-clock me-1"></i>В процессе изучения
+                    </span>
+                }
             </div>
         </div>
     </div>
+</div>
+
+@if (Model.Progress?.IsOverdue == true && Model.Progress?.FinalGrade == 2)
+{
+    <div class="alert alert-danger shadow-sm rounded-3 mb-4">
+        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+        <strong>Внимание: Срок сдачи задания по данной лекции истёк!</strong>
+        Автоматически выставлена оценка <strong>2 (Неудовлетворительно)</strong>. Вы можете выполнить задания и сдать тест, после чего обратиться к преподавателю для исправления оценки.
+    </div>
+}
 
     <!-- 1. Theoretical Material -->
     <div class="card shadow-sm border-0 rounded-3 mb-4">
@@ -266,4 +282,4 @@ else
             </div>
         </div>
     }
-}
+

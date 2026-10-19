@@ -1,30 +1,34 @@
 @model EduCabinet.Web.ViewModels.GroupJournalViewModel
 @{
-    ViewData["Title"] = "Ведомость успеваемости группы";
+    ViewData["Title"] = "Электронный журнал группы " + Model.SelectedGroup?.Name;
 }
 
 <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a asp-action="Disciplines">Дисциплины</a></li>
-        <li class="breadcrumb-item active">@Model.Discipline.Title: Ведомость группы</li>
+        <li class="breadcrumb-item active">@Model.Discipline.Title: Электронный журнал</li>
     </ol>
 </nav>
 
+<!-- Header & Group Selector -->
 <div class="card shadow-sm border-0 rounded-3 mb-4 bg-white">
     <div class="card-body p-4">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h3 class="fw-bold mb-1"><i class="bi bi-table text-primary me-2"></i>Ведомость успеваемости</h3>
-                <p class="text-muted mb-0">Курс: <strong>@Model.Discipline.Title</strong></p>
+                <span class="badge bg-primary bg-opacity-10 text-primary mb-2">Электронный журнал успеваемости</span>
+                <h3 class="fw-bold mb-1">@Model.Discipline.Title</h3>
+                <p class="text-muted mb-0 small">
+                    Преподаватель может выставлять и исправлять итоговые оценки (2, 3, 4, 5). При просрочке дедлайна автоматически выставляется оценка 2.
+                </p>
             </div>
             <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex justify-content-md-end align-items-center gap-2">
                 <form method="get" class="d-flex align-items-center gap-2">
                     <input type="hidden" name="disciplineId" value="@Model.Discipline.Id" />
-                    <select name="groupId" class="form-select" onchange="this.form.submit()">
+                    <select name="groupId" class="form-select fw-semibold" onchange="this.form.submit()">
                         @foreach (var g in Model.AvailableGroups)
                         {
                             <option value="@g.Id" selected="@(g.Id == Model.SelectedGroupId)">
-                                Группа @g.Name
+                                Учебная группа: @g.Name
                             </option>
                         }
                     </select>
@@ -41,83 +45,114 @@
     </div>
 </div>
 
-<div class="card shadow-sm border-0 rounded-3">
+<!-- Main Journal Table -->
+<div class="card shadow-sm border-0 rounded-3 overflow-hidden">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h5 class="fw-bold mb-0 text-dark">
-            Сводная матрица освоения лекций: @(Model.SelectedGroup?.Name ?? "Выберите группу")
-        </h5>
-        <div class="small">
-            <span class="badge bg-success me-2">Освоено</span>
-            <span class="badge bg-primary me-2">Доступно</span>
-            <span class="badge bg-secondary">Закрыто</span>
+        <div>
+            <h5 class="fw-bold mb-0 text-dark">
+                <i class="bi bi-journal-bookmark-fill text-primary me-2"></i>Журнал оценок: группа @(Model.SelectedGroup?.Name ?? "ИС-31")
+            </h5>
+            <small class="text-muted">Кликните на кнопку с карандашом в любой ячейке, чтобы изменить оценку студента</small>
+        </div>
+        <div class="d-flex gap-2">
+            <span class="badge bg-success">5 — Отлично</span>
+            <span class="badge bg-primary">4 — Хорошо</span>
+            <span class="badge bg-warning text-dark">3 — Удовл.</span>
+            <span class="badge bg-danger">2 — Неуд / Просрочено</span>
         </div>
     </div>
+
     <div class="card-body p-0">
         @if (!Model.StudentRows.Any())
         {
-            <div class="p-4 text-center text-muted">
-                В выбранной учебной группе нет зарегистрированных студентов.
+            <div class="p-5 text-center text-muted">
+                <i class="bi bi-people display-4 d-block mb-2"></i>
+                В выбранной учебной группе пока нет зарегистрированных студентов.
             </div>
         }
         else
         {
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height: 650px; overflow-y: auto;">
                 <table class="table table-bordered table-hover align-middle mb-0 text-center">
-                    <thead class="table-light">
+                    <thead class="table-dark sticky-top">
                         <tr>
-                            <th class="text-start" style="min-width: 200px;">ФИО студента</th>
+                            <th class="text-start ps-3" style="min-width: 220px; z-index: 2;">
+                                Обучающийся (ФИО)
+                            </th>
                             @foreach (var lec in Model.OrderedLectures)
                             {
-                                <th style="min-width: 120px;" title="@lec.Title">
-                                    <div class="small fw-bold">Лекция @lec.OrderIndex</div>
-                                    <div class="text-truncate small text-muted" style="max-width: 110px;">@lec.Title</div>
+                                <th style="min-width: 150px;">
+                                    <div class="fw-bold">Лекция @lec.OrderIndex</div>
+                                    <div class="text-truncate small opacity-75" style="max-width: 140px;" title="@lec.Title">@lec.Title</div>
+                                    @if (lec.Deadline.HasValue)
+                                    {
+                                        <span class="badge bg-info text-dark mt-1" style="font-size: 10px;">
+                                            <i class="bi bi-calendar-event me-1"></i>до @lec.Deadline.Value.ToLocalTime().ToString("dd.MM")
+                                        </span>
+                                    }
                                 </th>
                             }
-                            <th style="min-width: 100px;">Прогресс</th>
+                            <th style="min-width: 110px;">Освоение</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var row in Model.StudentRows)
                         {
                             <tr>
-                                <td class="text-start">
-                                    <div class="fw-bold">@row.Student.FullName</div>
+                                <td class="text-start ps-3 bg-white">
+                                    <div class="fw-bold text-dark">@row.Student.FullName</div>
                                     <small class="text-muted">@row.Student.Email</small>
                                 </td>
 
                                 @foreach (var lec in Model.OrderedLectures)
                                 {
                                     row.LectureCells.TryGetValue(lec.Id, out var cell);
-                                    <td>
+                                    <td class="p-2 position-relative @(cell?.IsOverdue == true && cell?.FinalGrade == 2 ? "bg-danger bg-opacity-10" : "")">
                                         @if (cell != null)
                                         {
-                                            @if (cell.IsCompleted)
-                                            {
-                                                <span class="badge bg-success" title="Лекция освоена">
-                                                    <i class="bi bi-check-lg"></i>
-                                                    @(cell.BestTestScore.HasValue ? $"{cell.BestTestScore}%" : "")
-                                                </span>
-                                            }
-                                            else if (cell.IsUnlocked || cell.IsUnlockedManually)
-                                            {
-                                                <div>
-                                                    <span class="badge @(cell.IsUnlockedManually ? "bg-warning text-dark" : "bg-primary")" title="@(cell.IsUnlockedManually ? "Ручной допуск" : "Открыта")">
-                                                        @(cell.BestTestScore.HasValue ? $"{cell.BestTestScore}%" : "Открыта")
+                                            <div class="d-flex flex-column align-items-center">
+                                                <!-- Оценка студента -->
+                                                @if (cell.FinalGrade.HasValue)
+                                                {
+                                                    string gradeClass = cell.FinalGrade.Value switch
+                                                    {
+                                                        5 => "bg-success text-white",
+                                                        4 => "bg-primary text-white",
+                                                        3 => "bg-warning text-dark",
+                                                        _ => "bg-danger text-white"
+                                                    };
+
+                                                    <span class="badge @gradeClass fs-5 px-3 py-1 shadow-sm mb-1" title="@(cell.TeacherGradeComment ?? "Оценка выставлена")">
+                                                        @cell.FinalGrade.Value
                                                     </span>
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <div class="d-flex flex-column align-items-center">
-                                                    <span class="badge bg-secondary mb-1" title="Заблокирована последовательностью">
-                                                        <i class="bi bi-lock-fill"></i>
+                                                }
+                                                else if (cell.IsOverdue)
+                                                {
+                                                    <span class="badge bg-danger fs-5 px-3 py-1 shadow-sm mb-1" title="Срок сдачи истёк!">
+                                                        2
                                                     </span>
-                                                    <button type="button" class="btn btn-outline-warning btn-sm py-0 px-1" style="font-size: 10px;"
-                                                            onclick="openUnlockModal('@row.Student.Id', '@row.Student.FullName', @lec.Id, '@lec.Title')">
-                                                        Разрешить
-                                                    </button>
-                                                </div>
-                                            }
+                                                    <span class="badge bg-danger-subtle text-danger" style="font-size: 9px;">Просрочено</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-light text-muted border mb-1">Не сдано</span>
+                                                }
+
+                                                <!-- Баллы теста -->
+                                                @if (cell.BestTestScore.HasValue)
+                                                {
+                                                    <small class="text-muted" style="font-size: 11px;">
+                                                        Тест: <strong>@cell.BestTestScore%</strong>
+                                                    </small>
+                                                }
+
+                                                <!-- Кнопка смены оценки преподавателем -->
+                                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 mt-1" style="font-size: 11px;"
+                                                        onclick="openGradeModal('@row.Student.Id', '@row.Student.FullName', @lec.Id, '@lec.Title', '@(cell.FinalGrade?.ToString() ?? "")', '@(cell.TeacherGradeComment?.Replace("'", "\\'") ?? "")')"
+                                                        title="Изменить оценку студента">
+                                                    <i class="bi bi-pencil-fill me-1"></i>Оценка
+                                                </button>
+                                            </div>
                                         }
                                         else
                                         {
@@ -126,8 +161,8 @@
                                     </td>
                                 }
 
-                                <td>
-                                    <div class="fw-bold text-primary">@row.OverallPercent%</div>
+                                <td class="bg-white">
+                                    <h5 class="fw-bold text-primary mb-0">@row.OverallPercent%</h5>
                                     <small class="text-muted">@row.CompletedLecturesCount/@Model.OrderedLectures.Count</small>
                                 </td>
                             </tr>
@@ -139,42 +174,68 @@
     </div>
 </div>
 
-<!-- Modal for Manual Unlock -->
-<div class="modal fade" id="unlockModal" tabindex="-1" aria-labelledby="unlockModalLabel" aria-hidden="true">
+<!-- Modal: Изменение оценки преподавателем -->
+<div class="modal fade" id="gradeModal" tabindex="-1" aria-labelledby="gradeModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form asp-action="ManualUnlock" method="post">
+            <form asp-action="UpdateStudentGrade" method="post">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="disciplineId" value="@Model.Discipline.Id" />
                 <input type="hidden" name="groupId" value="@Model.SelectedGroupId" />
-                <input type="hidden" id="modalStudentId" name="studentId" value="" />
-                <input type="hidden" id="modalLectureId" name="lectureId" value="" />
+                <input type="hidden" id="modalGradeStudentId" name="studentId" value="" />
+                <input type="hidden" id="modalGradeLectureId" name="lectureId" value="" />
 
-                <div class="modal-header bg-warning bg-opacity-25">
-                    <h5 class="modal-title fw-bold" id="unlockModalLabel">
-                        <i class="bi bi-unlock-fill me-2"></i>Ручная разблокировка лекции
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold" id="gradeModalLabel">
+                        <i class="bi bi-pencil-square me-2"></i>Выставление / изменение оценки
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label text-muted small">Обучающийся:</label>
-                        <div class="fw-bold fs-6" id="modalStudentName"></div>
+                        <label class="form-label text-muted small mb-0">Обучающийся:</label>
+                        <div class="fw-bold fs-5 text-dark" id="modalGradeStudentName"></div>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label text-muted small">Разблокируемая лекция:</label>
-                        <div class="fw-bold fs-6" id="modalLectureTitle"></div>
+                        <label class="form-label text-muted small mb-0">Тема / Лекция:</label>
+                        <div class="fw-semibold text-secondary" id="modalGradeLectureTitle"></div>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Причина досрочного открытия материала:</label>
-                        <textarea name="reason" class="form-control" rows="3" placeholder="Укажите обоснование (например: «Перезачёт темы по справке», «Индивидуальный график»)..." required></textarea>
-                        <div class="form-text">Действие будет зафиксировано в системном журнале аудита.</div>
+                        <label class="form-label fw-bold">Оценка по 5-балльной шкале:</label>
+                        <div class="d-flex gap-2">
+                            <div class="flex-fill">
+                                <input type="radio" class="btn-check" name="grade" id="grade5" value="5" required>
+                                <label class="btn btn-outline-success w-100 py-2 fw-bold fs-5" for="grade5">5 (Отл)</label>
+                            </div>
+                            <div class="flex-fill">
+                                <input type="radio" class="btn-check" name="grade" id="grade4" value="4">
+                                <label class="btn btn-outline-primary w-100 py-2 fw-bold fs-5" for="grade4">4 (Хор)</label>
+                            </div>
+                            <div class="flex-fill">
+                                <input type="radio" class="btn-check" name="grade" id="grade3" value="3">
+                                <label class="btn btn-outline-warning w-100 py-2 fw-bold fs-5" for="grade3">3 (Удовл)</label>
+                            </div>
+                            <div class="flex-fill">
+                                <input type="radio" class="btn-check" name="grade" id="grade2" value="2">
+                                <label class="btn btn-outline-danger w-100 py-2 fw-bold fs-5" for="grade2">2 (Неуд)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Комментарий преподавателя / основание:</label>
+                        <textarea id="modalGradeComment" name="comment" class="form-control" rows="3" placeholder="Например: «Пересдал в консультационный день», «Исправлено с двойки за дедлайн»..."></textarea>
+                        <div class="form-text small text-muted">Изменение оценки фиксируется в системном аудит-логе.</div>
                     </div>
                 </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-warning fw-semibold">
-                        <i class="bi bi-unlock me-1"></i>Предоставить доступ
+                    <button type="submit" class="btn btn-primary px-4 fw-semibold">
+                        <i class="bi bi-check2-circle me-1"></i>Сохранить оценку
                     </button>
                 </div>
             </form>
@@ -184,13 +245,19 @@
 
 @section Scripts {
     <script>
-        function openUnlockModal(studentId, studentName, lectureId, lectureTitle) {
-            document.getElementById('modalStudentId').value = studentId;
-            document.getElementById('modalStudentName').textContent = studentName;
-            document.getElementById('modalLectureId').value = lectureId;
-            document.getElementById('modalLectureTitle').textContent = lectureTitle;
+        function openGradeModal(studentId, studentName, lectureId, lectureTitle, currentGrade, comment) {
+            document.getElementById('modalGradeStudentId').value = studentId;
+            document.getElementById('modalGradeStudentName').textContent = studentName;
+            document.getElementById('modalGradeLectureId').value = lectureId;
+            document.getElementById('modalGradeLectureTitle').textContent = lectureTitle;
+            document.getElementById('modalGradeComment').value = comment || '';
 
-            const modal = new bootstrap.Modal(document.getElementById('unlockModal'));
+            // Set radio button if grade already set
+            const gradeVal = currentGrade || '5';
+            const radio = document.getElementById('grade' + gradeVal);
+            if (radio) radio.checked = true;
+
+            const modal = new bootstrap.Modal(document.getElementById('gradeModal'));
             modal.show();
         }
     </script>

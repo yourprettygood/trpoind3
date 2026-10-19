@@ -121,18 +121,21 @@ public class StudentController : Controller
                 if (progress?.IsCompleted == true)
                     completedLectures++;
 
-                topicVm.Lectures.Add(new StudentLectureStatusItem
-                {
-                    Lecture = lecture,
-                    IsUnlocked = access.IsAllowed,
-                    LockReason = access.Reason,
-                    IsCompleted = progress?.IsCompleted ?? false,
-                    IsTheoryRead = progress?.IsTheoryRead ?? false,
-                    AreQuestionsAnswered = progress?.AreQuestionsAnswered ?? false,
-                    IsTestPassed = testPassed,
-                    BestTestScore = bestScore,
-                    AttemptsUsed = attemptsForLecture.Count
-                });
+                    topicVm.Lectures.Add(new StudentLectureStatusItem
+                    {
+                        Lecture = lecture,
+                        IsUnlocked = access.IsAllowed,
+                        LockReason = access.Reason,
+                        IsCompleted = progress?.IsCompleted ?? false,
+                        IsTheoryRead = progress?.IsTheoryRead ?? false,
+                        AreQuestionsAnswered = progress?.AreQuestionsAnswered ?? false,
+                        IsTestPassed = testPassed,
+                        BestTestScore = bestScore,
+                        AttemptsUsed = attemptsForLecture.Count,
+                        FinalGrade = progress?.FinalGrade,
+                        IsOverdue = progress?.IsOverdue ?? (lecture.Deadline.HasValue && DateTime.UtcNow > lecture.Deadline.Value && !(progress?.IsCompleted ?? false)),
+                        TeacherGradeComment = progress?.TeacherGradeComment
+                    });
             }
 
             model.Topics.Add(topicVm);
@@ -435,7 +438,9 @@ public class StudentController : Controller
                     IsCompleted = isCompleted,
                     BestTestScore = attempts.Any() ? attempts.Max(a => a.ScorePercent) : null,
                     TestPassed = attempts.Any(a => a.IsPassed),
-                    AttemptsUsed = attempts.Count
+                    AttemptsUsed = attempts.Count,
+                    FinalGrade = prog?.FinalGrade,
+                    IsOverdue = prog?.IsOverdue ?? (lec.Deadline.HasValue && DateTime.UtcNow > lec.Deadline.Value && !isCompleted)
                 });
             }
 
@@ -516,7 +521,9 @@ public class StudentController : Controller
                     IsCompleted = isCompleted,
                     BestTestScore = attempts.Any() ? attempts.Max(a => a.ScorePercent) : null,
                     TestPassed = attempts.Any(a => a.IsPassed),
-                    AttemptsUsed = attempts.Count
+                    AttemptsUsed = attempts.Count,
+                    FinalGrade = prog?.FinalGrade,
+                    IsOverdue = prog?.IsOverdue ?? (lec.Deadline.HasValue && DateTime.UtcNow > lec.Deadline.Value && !isCompleted)
                 });
             }
 

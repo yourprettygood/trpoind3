@@ -19,7 +19,7 @@ public class LectureAccessServiceTests
     }
 
     [Fact]
-    public async Task CanAccessLecture_FirstLectureInDiscipline_AlwaysAllowed()
+    public async Task CanAccessLecture_AllLecturesAccessibleForStudy()
     {
         // Arrange
         using var context = CreateInMemoryDbContext();
@@ -36,14 +36,16 @@ public class LectureAccessServiceTests
         await context.SaveChangesAsync();
 
         // Act
-        var result = await service.CanAccessLectureAsync("student1", 1);
+        var result1 = await service.CanAccessLectureAsync("student1", 1);
+        var result2 = await service.CanAccessLectureAsync("student1", 2);
 
-        // Assert
-        result.IsAllowed.Should().BeTrue();
+        // Assert: Both lectures are open for student
+        result1.IsAllowed.Should().BeTrue();
+        result2.IsAllowed.Should().BeTrue();
     }
 
     [Fact]
-    public async Task CanAccessLecture_SecondLecture_DeniedIfPreviousTheoryNotRead()
+    public async Task DeadlineExpired_AutomaticallyAssignsGrade2()
     {
         // Arrange
         using var context = CreateInMemoryDbContext();
@@ -51,24 +53,34 @@ public class LectureAccessServiceTests
 
         var disc = new Discipline { Id = 1, Title = "Курс 1", TeacherId = "teacher1" };
         var topic = new Topic { Id = 1, DisciplineId = 1, Title = "Тема 1", OrderIndex = 1 };
-        var lecture1 = new Lecture { Id = 1, TopicId = 1, Title = "Лекция 1", OrderIndex = 1 };
-        var lecture2 = new Lecture { Id = 2, TopicId = 1, Title = "Лекция 2", OrderIndex = 2 };
+        var lecture = new Lecture
+        {
+            Id = 1,
+            TopicId = 1,
+            Title = "Лекция 1",
+            Deadline = DateTime.UtcNow.AddDays(-2) // Deadline was 2 days ago!
+        };
 
         context.Disciplines.Add(disc);
         context.Topics.Add(topic);
-        context.Lectures.AddRange(lecture1, lecture2);
+        context.Lectures.Add(lecture);
         await context.SaveChangesAsync();
 
-        // Act
-        var result = await service.CanAccessLectureAsync("student1", 2);
+        // Act: Student accesses lecture or background check executes
+        await service.CheckAndApplyDeadlinesAsync("student1", 1);
 
-        // Assert
-        result.IsAllowed.Should().BeFalse();
-        result.Reason.Should().Contain("теоретический материал предшествующей лекции");
+        // Assert: Student gets automatic grade 2 for missing deadline
+        var progress = await context.LectureProgresses
+            .FirstOrDefaultAsync(p => p.StudentId == "student1" && p.LectureId == 1);
+
+        progress.Should().NotBeNull();
+        progress!.IsOverdue.Should().BeTrue();
+        progress.FinalGrade.Should().Be(2);
+        progress.TeacherGradeComment.Should().Contain("Просрочено");
     }
 
     [Fact]
-    public async Task CanAccessLecture_SecondLecture_DeniedIfTestScoreBelowPassingThreshold()
+    public async Task TeacherCanOverrideGrade_ToAnyValueWithAuditLog()
     {
         // Arrange
         using var context = CreateInMemoryDbContext();
@@ -76,152 +88,37 @@ public class LectureAccessServiceTests
 
         var disc = new Discipline { Id = 1, Title = "Курс 1", TeacherId = "teacher1" };
         var topic = new Topic { Id = 1, DisciplineId = 1, Title = "Тема 1", OrderIndex = 1 };
-        var lecture1 = new Lecture { Id = 1, TopicId = 1, Title = "Лекция 1", OrderIndex = 1, RequiresTestToUnlockNext = true, PassingScorePercent = 70 };
-        var lecture2 = new Lecture { Id = 2, TopicId = 1, Title = "Лекция 2", OrderIndex = 2 };
-
-        var test = new Test { Id = 1, LectureId = 1, Title = "Тест 1", PassingScorePercent = 70 };
+        var lecture = new Lecture { Id = 1, TopicId = 1, Title = "Лекция 1", Deadline = DateTime.UtcNow.AddDays(-3) };
 
         context.Disciplines.Add(disc);
         context.Topics.Add(topic);
-        context.Lectures.AddRange(lecture1, lecture2);
-        context.Tests.Add(test);
+        context.Lectures.Add(lecture);
 
-        // Student read theory
+        // Initially student has grade 2 because of deadline
         context.LectureProgresses.Add(new LectureProgress
         {
             StudentId = "student1",
             LectureId = 1,
-            IsTheoryRead = true
+            FinalGrade = 2,
+            IsOverdue = true
         });
-
-        // Student took test but got 50% (< 70%)
-        context.TestAttempts.Add(new TestAttempt
-        {
-            StudentId = "student1",
-            TestId = 1,
-            ScorePercent = 50,
-            IsPassed = false,
-            Status = AttemptStatus.Completed
-        });
-
         await context.SaveChangesAsync();
 
-        // Act
-        var result = await service.CanAccessLectureAsync("student1", 2);
+        // Act: Teacher manually changes grade to 5 (Отлично) with comment
+        await service.SetTeacherGradeAsync("student1", 1, 5, "Студент пересдал на консультации на отлично", "teacher1");
 
         // Assert
-        result.IsAllowed.Should().BeFalse();
-        result.Reason.Should().Contain("не менее 70%");
-    }
+        var progress = await context.LectureProgresses
+            .FirstOrDefaultAsync(p => p.StudentId == "student1" && p.LectureId == 1);
 
-    [Fact]
-    public async Task CanAccessLecture_SecondLecture_AllowedWhenTestPassedSuccessfully()
-    {
-        // Arrange
-        using var context = CreateInMemoryDbContext();
-        var service = new LectureAccessService(context);
+        progress.Should().NotBeNull();
+        progress!.FinalGrade.Should().Be(5);
+        progress.TeacherGradeComment.Should().Be("Студент пересдал на консультации на отлично");
+        progress.IsCompleted.Should().BeTrue();
 
-        var disc = new Discipline { Id = 1, Title = "Курс 1", TeacherId = "teacher1" };
-        var topic = new Topic { Id = 1, DisciplineId = 1, Title = "Тема 1", OrderIndex = 1 };
-        var lecture1 = new Lecture { Id = 1, TopicId = 1, Title = "Лекция 1", OrderIndex = 1, RequiresTestToUnlockNext = true, PassingScorePercent = 70 };
-        var lecture2 = new Lecture { Id = 2, TopicId = 1, Title = "Лекция 2", OrderIndex = 2 };
-
-        var test = new Test { Id = 1, LectureId = 1, Title = "Тест 1", PassingScorePercent = 70 };
-
-        context.Disciplines.Add(disc);
-        context.Topics.Add(topic);
-        context.Lectures.AddRange(lecture1, lecture2);
-        context.Tests.Add(test);
-
-        // Student read theory
-        context.LectureProgresses.Add(new LectureProgress
-        {
-            StudentId = "student1",
-            LectureId = 1,
-            IsTheoryRead = true
-        });
-
-        // Student passed test with 85%
-        context.TestAttempts.Add(new TestAttempt
-        {
-            StudentId = "student1",
-            TestId = 1,
-            ScorePercent = 85,
-            IsPassed = true,
-            Status = AttemptStatus.Completed
-        });
-
-        await context.SaveChangesAsync();
-
-        // Act
-        var result = await service.CanAccessLectureAsync("student1", 2);
-
-        // Assert
-        result.IsAllowed.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task CanAccessLecture_SecondLecture_AllowedWhenTeacherUnlocksManually()
-    {
-        // Arrange
-        using var context = CreateInMemoryDbContext();
-        var service = new LectureAccessService(context);
-
-        var disc = new Discipline { Id = 1, Title = "Курс 1", TeacherId = "teacher1" };
-        var topic = new Topic { Id = 1, DisciplineId = 1, Title = "Тема 1", OrderIndex = 1 };
-        var lecture1 = new Lecture { Id = 1, TopicId = 1, Title = "Лекция 1", OrderIndex = 1, RequiresTestToUnlockNext = true, PassingScorePercent = 70 };
-        var lecture2 = new Lecture { Id = 2, TopicId = 1, Title = "Лекция 2", OrderIndex = 2 };
-
-        context.Disciplines.Add(disc);
-        context.Topics.Add(topic);
-        context.Lectures.AddRange(lecture1, lecture2);
-        await context.SaveChangesAsync();
-
-        // Act - Teacher manually unlocks lecture 2
-        var unlockSuccess = await service.UnlockLectureManuallyAsync("student1", 2, "teacher1", "Индивидуальный график");
-        var accessResult = await service.CanAccessLectureAsync("student1", 2);
-
-        // Assert
-        unlockSuccess.Should().BeTrue();
-        accessResult.IsAllowed.Should().BeTrue();
-
-        // Check AuditLog was created
-        var audit = await context.AuditLogs.FirstOrDefaultAsync(a => a.Action == "ManualLectureUnlock");
-        audit.Should().NotBeNull();
-        audit!.Details.Should().Contain("Индивидуальный график");
-    }
-
-    [Fact]
-    public async Task MultiUserIsolation_StudentAProgressDoesNotUnlockStudentB()
-    {
-        // Arrange
-        using var context = CreateInMemoryDbContext();
-        var service = new LectureAccessService(context);
-
-        var disc = new Discipline { Id = 1, Title = "Курс 1", TeacherId = "teacher1" };
-        var topic = new Topic { Id = 1, DisciplineId = 1, Title = "Тема 1", OrderIndex = 1 };
-        var lecture1 = new Lecture { Id = 1, TopicId = 1, Title = "Лекция 1", OrderIndex = 1, RequiresTestToUnlockNext = true, PassingScorePercent = 70 };
-        var lecture2 = new Lecture { Id = 2, TopicId = 1, Title = "Лекция 2", OrderIndex = 2 };
-
-        var test = new Test { Id = 1, LectureId = 1, Title = "Тест 1", PassingScorePercent = 70 };
-
-        context.Disciplines.Add(disc);
-        context.Topics.Add(topic);
-        context.Lectures.AddRange(lecture1, lecture2);
-        context.Tests.Add(test);
-
-        // Student A passed everything
-        context.LectureProgresses.Add(new LectureProgress { StudentId = "studentA", LectureId = 1, IsTheoryRead = true });
-        context.TestAttempts.Add(new TestAttempt { StudentId = "studentA", TestId = 1, ScorePercent = 100, IsPassed = true, Status = AttemptStatus.Completed });
-
-        await context.SaveChangesAsync();
-
-        // Act
-        var accessA = await service.CanAccessLectureAsync("studentA", 2);
-        var accessB = await service.CanAccessLectureAsync("studentB", 2);
-
-        // Assert: Student A has access, Student B does not!
-        accessA.IsAllowed.Should().BeTrue();
-        accessB.IsAllowed.Should().BeFalse();
+        // AuditLog record created
+        var log = await context.AuditLogs.FirstOrDefaultAsync(l => l.Action == "TeacherGradeChanged");
+        log.Should().NotBeNull();
+        log!.Details.Should().Contain("с [2] на [5]");
     }
 }

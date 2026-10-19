@@ -37,6 +37,11 @@ public class StudentLectureStatusItem
     public bool IsTestPassed { get; set; }
     public int? BestTestScore { get; set; }
     public int AttemptsUsed { get; set; }
+
+    // Оценка за задание и дедлайн
+    public int? FinalGrade { get; set; }
+    public bool IsOverdue { get; set; }
+    public string? TeacherGradeComment { get; set; }
 }
 
 public class StudentLectureViewViewModel
@@ -77,4 +82,6 @@ public class LectureGradeItem
     public int AttemptsUsed { get; set; }
     public int QuestionsScore { get; set; }
     public int MaxQuestionsScore { get; set; }
+    public int? FinalGrade { get; set; }
+    public bool IsOverdue { get; set; }
 }

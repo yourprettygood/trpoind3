@@ -22,6 +22,13 @@ public class LectureProgress
     public ApplicationUser? UnlockedByTeacher { get; set; }
     public string? UnlockReason { get; set; }
     public DateTime? UnlockedAt { get; set; }
+
+    // Оценка за лекцию / задание (2, 3, 4, 5) и статус дедлайна
+    public int? FinalGrade { get; set; }
+    public bool IsOverdue { get; set; }
+    public string? TeacherGradeComment { get; set; }
+    public DateTime? GradedAt { get; set; }
+    public string? GradedByTeacherId { get; set; }
 }
 
 public class AuditLog

@@ -18,4 +18,6 @@ public interface ILectureAccessService
     Task MarkTheoryReadAsync(string studentId, int lectureId);
     Task<bool> UnlockLectureManuallyAsync(string studentId, int lectureId, string teacherId, string reason);
     Task UpdateLectureCompletionStatusAsync(string studentId, int lectureId);
+    Task SetTeacherGradeAsync(string studentId, int lectureId, int grade, string? comment, string teacherId);
+    Task CheckAndApplyDeadlinesAsync(string studentId, int lectureId);
 }

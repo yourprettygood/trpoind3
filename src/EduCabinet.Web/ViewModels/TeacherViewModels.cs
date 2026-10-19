@@ -31,7 +31,7 @@ public class StudentJournalRow
 
 public class StudentLectureCell
 {
-    public bool IsUnlocked { get; set; }
+    public bool IsUnlocked { get; set; } = true;
     public bool IsUnlockedManually { get; set; }
     public bool IsCompleted { get; set; }
     public bool IsTheoryRead { get; set; }
@@ -39,6 +39,12 @@ public class StudentLectureCell
     public bool? TestPassed { get; set; }
     public int AttemptsCount { get; set; }
     public bool HasPendingQuestions { get; set; }
+
+    // Оценка за лекцию и дедлайн
+    public int? FinalGrade { get; set; }
+    public bool IsOverdue { get; set; }
+    public string? TeacherGradeComment { get; set; }
+    public DateTime? Deadline { get; set; }
 }
 
 public class GradeSubmissionViewModel

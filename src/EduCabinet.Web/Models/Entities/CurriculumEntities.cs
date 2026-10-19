@@ -50,6 +50,9 @@ public class Lecture
     public int PassingScorePercent { get; set; } = 70;
     public bool RequiresQuestionsCheck { get; set; } = true;
 
+    // Срок сдачи задания по лекции (дедлайн)
+    public DateTime? Deadline { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<ControlQuestion> ControlQuestions { get; set; } = new List<ControlQuestion>();

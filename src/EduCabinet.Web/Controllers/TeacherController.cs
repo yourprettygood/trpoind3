@@ -431,7 +431,11 @@ public class TeacherController : Controller
                         IsTheoryRead = prog?.IsTheoryRead ?? false,
                         BestTestScore = attempts.Any() ? attempts.Max(a => a.ScorePercent) : null,
                         TestPassed = attempts.Any(a => a.IsPassed),
-                        AttemptsCount = attempts.Count
+                        AttemptsCount = attempts.Count,
+                        FinalGrade = prog?.FinalGrade,
+                        IsOverdue = prog?.IsOverdue ?? (lec.Deadline.HasValue && DateTime.UtcNow > lec.Deadline.Value && !isCompleted),
+                        TeacherGradeComment = prog?.TeacherGradeComment,
+                        Deadline = lec.Deadline
                     };
                 }
 
@@ -445,6 +449,17 @@ public class TeacherController : Controller
         }
 
         return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateStudentGrade(string studentId, int lectureId, int grade, string? comment, int disciplineId, int? groupId)
+    {
+        var teacherId = await GetCurrentUserIdAsync();
+        await _lectureAccessService.SetTeacherGradeAsync(studentId, lectureId, grade, comment, teacherId);
+
+        TempData["SuccessMessage"] = $"Оценка [{grade}] успешно выставлена преподавателем!";
+        return RedirectToAction(nameof(Journal), new { disciplineId, groupId });
     }
 
     [HttpPost]

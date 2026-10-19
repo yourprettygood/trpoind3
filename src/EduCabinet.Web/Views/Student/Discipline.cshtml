@@ -14,6 +14,7 @@
     <div class="card-body p-4">
         <div class="row align-items-center">
             <div class="col-md-8">
+                <span class="badge bg-primary bg-opacity-10 text-primary mb-2">Учебный курс</span>
                 <h3 class="fw-bold mb-2">@Model.Discipline.Title</h3>
                 <p class="text-muted mb-3">@Model.Discipline.Description</p>
                 <div class="d-flex align-items-center text-muted small">
@@ -23,7 +24,7 @@
             </div>
             <div class="col-md-4 text-md-end mt-3 mt-md-0">
                 <div class="p-3 bg-light rounded text-center">
-                    <span class="text-muted small d-block mb-1">Общий прогресс курса</span>
+                    <span class="text-muted small d-block mb-1">Освоение курса</span>
                     <h2 class="fw-bold text-primary mb-2">@Model.OverallProgressPercent%</h2>
                     <div class="progress" style="height: 10px;">
                         <div class="progress-bar bg-success" role="progressbar" style="width: @Model.OverallProgressPercent%"></div>
@@ -34,13 +35,12 @@
     </div>
 </div>
 
-<h4 class="fw-bold mb-3"><i class="bi bi-list-check text-primary me-2"></i>Содержание курса и порядок изучения</h4>
+<h4 class="fw-bold mb-3"><i class="bi bi-list-check text-primary me-2"></i>Темы и учебные материалы курса</h4>
 
 <div class="accordion" id="curriculumAccordion">
     @for (int i = 0; i < Model.Topics.Count; i++)
     {
         var topicVm = Model.Topics[i];
-        string collapseId = $"collapseTopic_{topicVm.Topic.Id}";
 
         <div class="card border-0 shadow-sm rounded-3 mb-3 overflow-hidden">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center" id="heading_@topicVm.Topic.Id">
@@ -61,24 +61,25 @@
                     @foreach (var item in topicVm.Lectures)
                     {
                         var lec = item.Lecture;
-                        <li class="list-group-item p-3 d-flex justify-content-between align-items-center @(item.IsUnlocked ? "" : "bg-light text-muted")">
+                        <li class="list-group-item p-3 d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-start me-3">
                                 <div class="me-3 mt-1 fs-4">
-                                    @if (item.IsCompleted)
+                                    @if (item.FinalGrade.HasValue)
                                     {
-                                        <i class="bi bi-check-circle-fill text-success" title="Лекция успешно пройдена"></i>
+                                        string iconColor = item.FinalGrade.Value >= 4 ? "text-success" : (item.FinalGrade.Value == 3 ? "text-warning" : "text-danger");
+                                        <i class="bi bi-check-circle-fill @iconColor"></i>
                                     }
-                                    else if (item.IsUnlocked)
+                                    else if (item.IsOverdue)
                                     {
-                                        <i class="bi bi-unlock-fill text-primary" title="Лекция доступна для изучения"></i>
+                                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
                                     }
                                     else
                                     {
-                                        <i class="bi bi-lock-fill text-secondary" title="Лекция заблокирована"></i>
+                                        <i class="bi bi-book text-primary"></i>
                                     }
                                 </div>
                                 <div>
-                                    <h6 class="fw-bold mb-1 @(item.IsUnlocked ? "text-dark" : "text-muted")">
+                                    <h6 class="fw-bold mb-1 text-dark">
                                         @lec.Title
                                     </h6>
                                     @if (!string.IsNullOrEmpty(lec.Description))
@@ -87,30 +88,41 @@
                                     }
 
                                     <div class="d-flex flex-wrap gap-2 align-items-center mt-1">
-                                        @if (item.IsCompleted)
+                                        <!-- Оценка -->
+                                        @if (item.FinalGrade.HasValue)
                                         {
-                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                                <i class="bi bi-check2 me-1"></i>Освоено
+                                            string badgeClass = item.FinalGrade.Value switch
+                                            {
+                                                5 => "bg-success",
+                                                4 => "bg-primary",
+                                                3 => "bg-warning text-dark",
+                                                _ => "bg-danger"
+                                            };
+                                            <span class="badge @badgeClass fs-6 px-2 py-1">
+                                                Оценка: @item.FinalGrade.Value
                                             </span>
                                         }
-                                        else if (item.IsUnlocked)
+                                        else if (item.IsOverdue)
                                         {
-                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                                <i class="bi bi-arrow-right-circle me-1"></i>Доступно для изучения
+                                            <span class="badge bg-danger fs-6 px-2 py-1">
+                                                Оценка: 2 (Просрочено)
                                             </span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                                <i class="bi bi-lock me-1"></i>Заблокировано
-                                            </span>
-                                            <small class="text-danger"><i class="bi bi-info-circle me-1"></i>@item.LockReason</small>
                                         }
 
+                                        <!-- Дедлайн -->
+                                        @if (lec.Deadline.HasValue)
+                                        {
+                                            bool isPassedDeadline = DateTime.UtcNow > lec.Deadline.Value;
+                                            <span class="badge @(isPassedDeadline ? "bg-danger-subtle text-danger border" : "bg-info-subtle text-dark border")">
+                                                <i class="bi bi-calendar-event me-1"></i>Срок: до @lec.Deadline.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                            </span>
+                                        }
+
+                                        <!-- Тест -->
                                         @if (item.BestTestScore.HasValue)
                                         {
-                                            <span class="badge @(item.IsTestPassed ? "bg-success" : "bg-danger")">
-                                                Тест: @item.BestTestScore% (@(item.IsTestPassed ? "Сдан" : "Не сдан"))
+                                            <span class="badge @(item.IsTestPassed ? "bg-success-subtle text-success border" : "bg-danger-subtle text-danger border")">
+                                                Тест: @item.BestTestScore%
                                             </span>
                                         }
                                     </div>
@@ -118,18 +130,9 @@
                             </div>
 
                             <div>
-                                @if (item.IsUnlocked)
-                                {
-                                    <a asp-action="Lecture" asp-route-id="@lec.Id" class="btn btn-outline-primary btn-sm px-3 fw-semibold">
-                                        Открыть <i class="bi bi-box-arrow-up-right ms-1"></i>
-                                    </a>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-secondary btn-sm px-3" disabled title="@item.LockReason">
-                                        <i class="bi bi-lock me-1"></i>Закрыто
-                                    </button>
-                                }
+                                <a asp-action="Lecture" asp-route-id="@lec.Id" class="btn btn-outline-primary btn-sm px-3 fw-semibold">
+                                    Изучить <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
                             </div>
                         </li>
                     }
