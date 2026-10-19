@@ -82,6 +82,11 @@
                                         <i class="bi bi-pencil-square me-1"></i>Проверка ответов
                                     </a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link bg-light bg-opacity-10 rounded px-2 text-warning fw-semibold" asp-controller="DatabaseExplorer" asp-action="Index">
+                                        <i class="bi bi-database-fill-gear me-1"></i>Инспектор БД (DBeaver)
+                                    </a>
+                                </li>
                             }
 
                             @if (User.IsInRole("Administrator"))

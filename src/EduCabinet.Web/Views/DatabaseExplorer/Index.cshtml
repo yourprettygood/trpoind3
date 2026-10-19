@@ -1,0 +1,396 @@
+@model List<EduCabinet.Web.Controllers.DatabaseExplorerController.TableMetaDto>
+@{
+    ViewData["Title"] = "Инспектор БД PostgreSQL (DBeaver view)";
+    var initialTable = ViewBag.SelectedTable as string ?? "Lectures";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="fw-bold mb-1"><i class="bi bi-database-fill-gear text-primary me-2"></i>Инспектор базы данных PostgreSQL</h2>
+        <p class="text-muted mb-0">
+            СУБД: <strong>PostgreSQL 18</strong> | База данных: <code>educabinet_db</code> | Хост: <code>localhost:5432</code>
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <button id="btnRefresh" class="btn btn-outline-primary" onclick="loadTableData(currentTable)">
+            <i class="bi bi-arrow-clockwise me-1"></i>Обновить данные
+        </button>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-pills mb-4 bg-white p-2 rounded-3 shadow-sm" id="pills-tab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-semibold" id="tab-data-link" data-bs-toggle="pill" data-bs-target="#tab-data" type="button" role="tab">
+            <i class="bi bi-table me-2"></i>Просмотр данных таблиц (DBeaver Grid)
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="tab-erd-link" data-bs-toggle="pill" data-bs-target="#tab-erd" type="button" role="tab">
+            <i class="bi bi-diagram-3-fill me-2"></i>Интерактивная ER-диаграмма связей
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="pills-tabContent">
+    <!-- TAB 1: Live Data Browser -->
+    <div class="tab-pane fade show active" id="tab-data" role="tabpanel">
+        <div class="row g-3">
+            <!-- Sidebar with Tables -->
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 rounded-3">
+                    <div class="card-header bg-white py-3 fw-bold text-dark d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-layers me-2"></i>Таблицы (@Model.Count)</span>
+                        <span class="badge bg-primary">Всего @Model.Sum(t => t.RowCount) строк</span>
+                    </div>
+                    <div class="list-group list-group-flush" style="max-height: 600px; overflow-y: auto;">
+                        @foreach (var table in Model)
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center table-nav-item @(table.Name == initialTable ? "active fw-bold" : "")"
+                                    onclick="switchTable('@table.Name', this)"
+                                    data-table="@table.Name">
+                                <div>
+                                    <i class="bi bi-grid-3x3 me-2"></i>@table.Name
+                                    <div class="text-truncate small @(table.Name == initialTable ? "text-light" : "text-muted")" style="max-width: 170px;">
+                                        @table.Description
+                                    </div>
+                                </div>
+                                <span class="badge @(table.Name == initialTable ? "bg-light text-primary" : "bg-secondary") rounded-pill">
+                                    @table.RowCount
+                                </span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Data Viewer Area -->
+            <div class="col-md-9">
+                <div class="card shadow-sm border-0 rounded-3">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark" id="currentTableTitle">
+                                <i class="bi bi-table text-primary me-2"></i>Таблица: <span id="tableNameLabel">@initialTable</span>
+                            </h5>
+                            <small class="text-muted" id="tableDescriptionLabel">Загрузка данных...</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="input-group input-group-sm" style="width: 220px;">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" id="gridSearchInput" class="form-control" placeholder="Фильтр записей..." onkeyup="filterGrid()" />
+                            </div>
+                            <span class="badge bg-info text-dark" id="rowsBadge">0 строк</span>
+                        </div>
+                    </div>
+
+                    <div class="card-body p-0">
+                        <div id="loadingSpinner" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <div class="text-muted small mt-2">Запрос к PostgreSQL...</div>
+                        </div>
+
+                        <div class="table-responsive" style="max-height: 540px; overflow-y: auto;">
+                            <table class="table table-bordered table-striped table-hover align-middle mb-0 font-monospace small" id="dbeaverGrid">
+                                <thead class="table-dark sticky-top" id="gridHead">
+                                    <!-- Dynamic columns -->
+                                </thead>
+                                <tbody id="gridBody">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: ER-Diagram (DBeaver style) -->
+    <div class="tab-pane fade" id="tab-erd" role="tabpanel">
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-diagram-3 me-2"></i>Интерактивная ER-модель сущностей</h5>
+                <span class="badge bg-light text-dark border">15 связанных таблиц</span>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-3">
+                    Диаграмма отражает полную реляционную модель базы данных <code>educabinet_db</code> в нотации Crow's Foot. Нажмите на карточку любой таблицы ниже, чтобы мгновенно просмотреть её актуальные записи из базы данных.
+                </p>
+
+                <!-- Mermaid Diagram -->
+                <div class="p-3 bg-white border rounded-3 mb-4 overflow-auto text-center">
+                    <pre class="mermaid text-start">
+erDiagram
+    Users ||--o{ Disciplines : "создает (1:N)"
+    Users ||--o{ GroupMemberships : "состоит в (1:N)"
+    Users ||--o{ StudentAnswers : "отвечает (1:N)"
+    Users ||--o{ TestAttempts : "проходит (1:N)"
+    Users ||--o{ LectureProgresses : "прогресс (1:N)"
+
+    StudentGroups ||--o{ GroupMemberships : "включает (1:N)"
+
+    Disciplines ||--o{ Topics : "содержит (1:N)"
+    Topics ||--o{ Lectures : "содержит (1:N)"
+
+    Lectures ||--o{ ControlQuestions : "вопросы (1:N)"
+    Lectures ||--o{ Tests : "тесты (1:N)"
+    Lectures ||--o{ LectureProgresses : "статусы (1:N)"
+
+    ControlQuestions ||--o{ StudentAnswers : "ответы (1:N)"
+
+    Tests ||--o{ TestQuestions : "вопросы (1:N)"
+    Tests ||--o{ TestAttempts : "попытки (1:N)"
+
+    TestQuestions ||--o{ AnswerOptions : "варианты (1:N)"
+    TestQuestions ||--o{ StudentTestAnswers : "ответы (1:N)"
+
+    TestAttempts ||--o{ StudentTestAnswers : "результаты (1:N)"
+
+    Users {
+        string Id PK
+        string FullName
+        string Email
+        string UserRole
+    }
+
+    Disciplines {
+        int Id PK
+        string Title
+        string TeacherId FK
+    }
+
+    Topics {
+        int Id PK
+        int DisciplineId FK
+        string Title
+        int OrderIndex
+    }
+
+    Lectures {
+        int Id PK
+        int TopicId FK
+        string Title
+        int OrderIndex
+        int PassingScorePercent
+        bool RequiresTestToUnlockNext
+    }
+
+    ControlQuestions {
+        int Id PK
+        int LectureId FK
+        string QuestionText
+        int MaxScore
+    }
+
+    StudentAnswers {
+        int Id PK
+        int QuestionId FK
+        string StudentId FK
+        string StudentAnswerText
+        int TeacherScore
+        string TeacherFeedback
+    }
+
+    Tests {
+        int Id PK
+        int LectureId FK
+        string Title
+        int PassingScorePercent
+        int MaxAttempts
+    }
+
+    TestAttempts {
+        int Id PK
+        int TestId FK
+        string StudentId FK
+        int ScorePercent
+        bool IsPassed
+    }
+
+    LectureProgresses {
+        int Id PK
+        string StudentId FK
+        int LectureId FK
+        bool IsTheoryRead
+        bool IsTestPassed
+        bool IsCompleted
+        bool IsUnlockedManually
+    }
+                    </pre>
+                </div>
+
+                <!-- Entity Cards with Quick Jump to Data -->
+                <h5 class="fw-bold mb-3"><i class="bi bi-box-arrow-in-down-right me-2"></i>Быстрый переход к таблицам</h5>
+                <div class="row g-3">
+                    @foreach (var table in Model)
+                    {
+                        <div class="col-md-4 col-lg-3">
+                            <div class="card h-100 border rounded-3 p-3 bg-light hover-shadow cursor-pointer" onclick="jumpToTable('@table.Name')">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong class="text-primary"><i class="bi bi-table me-1"></i>@table.Name</strong>
+                                    <span class="badge bg-secondary">@table.RowCount строк</span>
+                                </div>
+                                <div class="small text-muted mb-2">@table.Description</div>
+                                <button class="btn btn-outline-primary btn-sm w-100 mt-auto py-1">
+                                    Открыть данные <i class="bi bi-arrow-right ms-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Mermaid CDN for ERD rendering -->
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+
+    <script>
+        let currentTable = '@initialTable';
+        let currentRows = [];
+        let currentColumns = [];
+
+        const tableDescriptions = {
+            'Disciplines': 'Учебные курсы и дисциплины, созданные преподавателями',
+            'Topics': 'Темы внутри дисциплин с порядковыми номерами изучения',
+            'Lectures': 'Лекции с прикрепленными PDF/DOCX, порогами тестов и условиями открытия',
+            'ControlQuestions': 'Контрольные вопросы к лекциям (краткие, с выбором, развёрнутые)',
+            'StudentAnswers': 'Ответы студентов на контрольные вопросы (изолированы от рецензии)',
+            'Tests': 'Контрольные тесты к лекциям с проходным баллом и числом попыток',
+            'TestQuestions': 'Вопросы тестирования с указанием баллов',
+            'AnswerOptions': 'Варианты ответов на вопросы теста с флагом правильности',
+            'TestAttempts': 'Попытки тестирования студентов: баллы, процент, статус прохождения',
+            'StudentTestAnswers': 'Детальные ответы студента по каждому вопросу в попытке теста',
+            'LectureProgresses': 'Прогресс студента по лекции: теория, вопросы, тест, ручной допуск',
+            'StudentGroups': 'Справочник учебных групп студентов (ИС-31, курс и специальность)',
+            'GroupMemberships': 'Связующая таблица привязки студентов к учебным группам',
+            'Users': 'Учётные записи пользователей (Студенты, Преподаватели, Администраторы)',
+            'AuditLogs': 'Журнал аудита безопасности: фиксация ручных разблокировок и изменений'
+        };
+
+        function switchTable(name, element) {
+            currentTable = name;
+            document.querySelectorAll('.table-nav-item').forEach(el => {
+                el.classList.remove('active', 'fw-bold');
+                const badge = el.querySelector('.badge');
+                if (badge) {
+                    badge.classList.remove('bg-light', 'text-primary');
+                    badge.classList.add('bg-secondary');
+                }
+                const small = el.querySelector('.small');
+                if (small) {
+                    small.classList.remove('text-light');
+                    small.classList.add('text-muted');
+                }
+            });
+
+            if (element) {
+                element.classList.add('active', 'fw-bold');
+                const badge = element.querySelector('.badge');
+                if (badge) {
+                    badge.classList.remove('bg-secondary');
+                    badge.classList.add('bg-light', 'text-primary');
+                }
+                const small = element.querySelector('.small');
+                if (small) {
+                    small.classList.remove('text-muted');
+                    small.classList.add('text-light');
+                }
+            }
+
+            document.getElementById('tableNameLabel').textContent = name;
+            document.getElementById('tableDescriptionLabel').textContent = tableDescriptions[name] || '';
+            document.getElementById('gridSearchInput').value = '';
+
+            loadTableData(name);
+        }
+
+        function jumpToTable(name) {
+            const btn = document.querySelector(`[data-table="${name}"]`);
+            const tabData = new bootstrap.Tab(document.getElementById('tab-data-link'));
+            tabData.show();
+            switchTable(name, btn);
+        }
+
+        async function loadTableData(name) {
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('dbeaverGrid').style.display = 'none';
+
+            try {
+                const response = await fetch(`/DatabaseExplorer/GetTableData?tableName=${encodeURIComponent(name)}`);
+                if (!response.ok) throw new Error('Ошибка загрузки данных');
+
+                const data = await response.json();
+                currentColumns = data.columns;
+                currentRows = data.rows;
+
+                renderGrid(currentColumns, currentRows);
+                document.getElementById('rowsBadge').textContent = `${currentRows.length} строк`;
+            } catch (err) {
+                document.getElementById('gridBody').innerHTML = `<tr><td colspan="10" class="text-danger p-3 text-center">Ошибка: ${err.message}</td></tr>`;
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('dbeaverGrid').style.display = 'table';
+            }
+        }
+
+        function renderGrid(columns, rows) {
+            const head = document.getElementById('gridHead');
+            const body = document.getElementById('gridBody');
+
+            head.innerHTML = `<tr><th style="width: 40px;" class="text-center">#</th>${columns.map(c => `<th><i class="bi bi-tag-fill me-1 text-info opacity-75"></i>${c}</th>`).join('')}</tr>`;
+
+            if (rows.length === 0) {
+                body.innerHTML = `<tr><td colspan="${columns.length + 1}" class="text-center text-muted p-4">Таблица пуста (нет записей).</td></tr>`;
+                return;
+            }
+
+            body.innerHTML = rows.map((r, idx) => {
+                const tds = columns.map(c => {
+                    let val = r[c] ?? r[c.charAt(0).toLowerCase() + c.slice(1)];
+                    if (val === null || val === undefined) return '<span class="text-muted fst-italic">NULL</span>';
+                    if (typeof val === 'boolean') {
+                        return val 
+                            ? '<span class="badge bg-success-subtle text-success border">TRUE</span>' 
+                            : '<span class="badge bg-danger-subtle text-danger border">FALSE</span>';
+                    }
+                    return `<span title="${String(val).replace(/"/g, '&quot;')}">${escapeHtml(String(val))}</span>`;
+                }).join('');
+
+                return `<tr><td class="text-center text-muted">${idx + 1}</td>${tds}</tr>`;
+            }).join('');
+        }
+
+        function filterGrid() {
+            const query = document.getElementById('gridSearchInput').value.toLowerCase().trim();
+            if (!query) {
+                renderGrid(currentColumns, currentRows);
+                document.getElementById('rowsBadge').textContent = `${currentRows.length} строк`;
+                return;
+            }
+
+            const filtered = currentRows.filter(r => {
+                return Object.values(r).some(v => String(v).toLowerCase().includes(query));
+            });
+
+            renderGrid(currentColumns, filtered);
+            document.getElementById('rowsBadge').textContent = `${filtered.length} из ${currentRows.length}`;
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Auto load initial table
+        document.addEventListener('DOMContentLoaded', function () {
+            switchTable(currentTable, document.querySelector(`[data-table="${currentTable}"]`));
+        });
+    </script>
+}
