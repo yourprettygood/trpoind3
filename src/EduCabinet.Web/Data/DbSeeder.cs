@@ -141,6 +141,7 @@ public static class DbSeeder
                 RequiresTestToUnlockNext = true,
                 PassingScorePercent = 70,
                 RequiresQuestionsCheck = false,
+                Deadline = DateTime.UtcNow.AddDays(7),
                 ContentHtml = @"
                     <h4>1. Понятие жизненного цикла внедрения</h4>
                     <p>Внедрение программного обеспечения — это комплекс организационно-технических мероприятий по развёртыванию разработанного продукта на площадке заказчика или в учебной лаборатории.</p>
@@ -260,6 +261,7 @@ public static class DbSeeder
                 RequiresTestToUnlockNext = true,
                 PassingScorePercent = 70,
                 RequiresQuestionsCheck = false,
+                Deadline = DateTime.UtcNow.AddDays(14),
                 ContentHtml = @"
                     <h4>1. Публикация в Release-конфигурации</h4>
                     <p>Команда <code>dotnet publish -c Release</code> собирает оптимизированный код без символов отладки, готовый к запуску через Kestrel.</p>
@@ -317,6 +319,7 @@ public static class DbSeeder
                 RequiresTestToUnlockNext = true,
                 PassingScorePercent = 70,
                 RequiresQuestionsCheck = false,
+                Deadline = DateTime.UtcNow.AddDays(21),
                 ContentHtml = @"
                     <h4>1. Программа испытаний</h4>
                     <p>При вводе в эксплуатацию программный продукт подвергается функциональному и нагрузочному тестированию:</p>
@@ -350,6 +353,7 @@ public static class DbSeeder
                 RequiresTestToUnlockNext = false,
                 PassingScorePercent = 70,
                 RequiresQuestionsCheck = false,
+                Deadline = DateTime.UtcNow.AddDays(28),
                 ContentHtml = @"
                     <h4>1. Регламент сопровождения</h4>
                     <p>Для предотвращения потери учебных данных преподавателя и студентов организуется периодическое создание дампа БД утилитой <code>pg_dump</code> и архивирование каталога загруженных лекций.</p>

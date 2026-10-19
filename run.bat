@@ -35,6 +35,7 @@ echo [INFO] Launching browser at http://localhost:5000 in 3 seconds...
 start /b cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:5000"
 
 rem 5. Run ASP.NET Core web server
+taskkill /F /IM EduCabinet.Web.exe >nul 2>nul
 echo [INFO] Starting Kestrel web server via dotnet run...
 dotnet run --urls "http://localhost:5000"
 if errorlevel 1 (
