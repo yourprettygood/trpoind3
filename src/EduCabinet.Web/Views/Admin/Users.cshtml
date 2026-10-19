@@ -1,55 +1,152 @@
 @model List<EduCabinet.Web.ViewModels.UserListItemViewModel>
 @{
     ViewData["Title"] = "Пользователи и роли";
+    var currentUserId = ViewBag.CurrentUserId as string ?? "";
+    var totalCount = Model.Count;
+    var studentsCount = Model.Count(u => u.Role == "Student");
+    var teachersCount = Model.Count(u => u.Role == "Teacher");
+    var adminsCount = Model.Count(u => u.Role == "Administrator");
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
     <div>
         <h2 class="fw-bold mb-1"><i class="bi bi-people-fill text-dark me-2"></i>Реестр пользователей системы</h2>
-        <p class="text-muted mb-0">Управление учетными записями, ролями (RBAC) и привязкой к группам.</p>
+        <p class="text-muted mb-0">Управление учетными записями, ролями (RBAC) и привязкой студентов к группам.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="CreateUser" class="btn btn-primary shadow-sm px-3 py-2 fw-semibold">
+            <i class="bi bi-person-plus-fill me-2"></i>Добавить пользователя
+        </a>
+    </div>
+</div>
+
+<!-- Статистические плашки -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle bg-secondary bg-opacity-10 text-secondary p-3 me-3">
+                    <i class="bi bi-people fs-4"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Всего пользователей</div>
+                    <div class="fs-4 fw-bold text-dark">@totalCount</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle bg-success bg-opacity-10 text-success p-3 me-3">
+                    <i class="bi bi-mortarboard fs-4"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Студентов</div>
+                    <div class="fs-4 fw-bold text-success">@studentsCount</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle bg-primary bg-opacity-10 text-primary p-3 me-3">
+                    <i class="bi bi-person-badge fs-4"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Преподавателей</div>
+                    <div class="fs-4 fw-bold text-primary">@teachersCount</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+            <div class="d-flex align-items-center">
+                <div class="rounded-circle bg-dark bg-opacity-10 text-dark p-3 me-3">
+                    <i class="bi bi-shield-lock fs-4"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Администраторов</div>
+                    <div class="fs-4 fw-bold text-dark">@adminsCount</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="card shadow-sm border-0 rounded-3">
+    <div class="card-header bg-white py-3 border-0">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-6 col-lg-5">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="userSearchInput" class="form-control border-start-0 ps-0" placeholder="Поиск по ФИО, email или роли..." onkeyup="filterUserTable()">
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-7 text-md-end text-muted small">
+                Найдено записей: <span id="filteredCount" class="fw-bold">@totalCount</span> из @totalCount
+            </div>
+        </div>
+    </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0" id="usersTable">
                 <thead class="table-light">
                     <tr>
-                        <th>ФИО</th>
+                        <th class="ps-3">ФИО</th>
                         <th>Email / Логин</th>
+                        <th>Контакт</th>
                         <th>Роль в системе</th>
                         <th>Учебная группа</th>
-                        <th>Дата регистрации</th>
+                        <th>Дата создания</th>
                         <th class="text-end pe-3">Действия</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var u in Model)
                     {
+                        var isCurrentAdmin = u.Id == currentUserId;
                         <tr>
-                            <td class="fw-bold">@u.FullName</td>
-                            <td>@u.Email</td>
-                            <td>
+                            <td class="ps-3 fw-bold user-fullname">
+                                @u.FullName
+                                @if (isCurrentAdmin)
+                                {
+                                    <span class="badge bg-secondary ms-1">Вы</span>
+                                }
+                            </td>
+                            <td class="user-email text-muted">@u.Email</td>
+                            <td class="small">@(string.IsNullOrWhiteSpace(u.PhoneNumber) ? "—" : u.PhoneNumber)</td>
+                            <td class="user-role">
                                 @if (u.Role == "Administrator")
                                 {
-                                    <span class="badge bg-dark">Администратор</span>
+                                    <span class="badge bg-dark"><i class="bi bi-shield-lock me-1"></i>Администратор</span>
                                 }
                                 else if (u.Role == "Teacher")
                                 {
-                                    <span class="badge bg-primary">Преподаватель</span>
+                                    <span class="badge bg-primary"><i class="bi bi-person-video3 me-1"></i>Преподаватель</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-success">Студент</span>
+                                    <span class="badge bg-success"><i class="bi bi-mortarboard me-1"></i>Студент</span>
                                 }
                             </td>
                             <td>@(u.GroupName ?? "—")</td>
-                            <td class="text-muted small">@u.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                            <td class="text-muted small">@u.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
                             <td class="text-end pe-3">
-                                <a asp-action="EditUser" asp-route-id="@u.Id" class="btn btn-outline-primary btn-sm">
-                                    <i class="bi bi-pencil me-1"></i>Изменить роль
-                                </a>
+                                <div class="btn-group btn-group-sm">
+                                    <a asp-action="EditUser" asp-route-id="@u.Id" class="btn btn-outline-primary" title="Изменить роль и группу">
+                                        <i class="bi bi-pencil me-1"></i>Изменить
+                                    </a>
+                                    @if (!isCurrentAdmin)
+                                    {
+                                        <button type="button" class="btn btn-outline-danger" title="Удалить пользователя"
+                                                onclick="confirmDeleteUser('@u.Id', '@Html.Raw(Html.Encode(u.FullName))', '@Html.Raw(Html.Encode(u.Email))')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }
@@ -58,3 +155,61 @@
         </div>
     </div>
 </div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteUserModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Удаление пользователя</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <p>Вы действительно хотите удалить пользователя <strong id="deleteUserName"></strong> (<span id="deleteUserEmail" class="text-muted"></span>)?</p>
+                <div class="alert alert-warning small mb-0">
+                    <i class="bi bi-info-circle me-1"></i>Это действие необратимо. Будут удалены все привязки к группам и учетная запись пользователя.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                <form id="deleteUserForm" asp-action="DeleteUser" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" id="deleteUserIdInput" value="" />
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Удалить навсегда
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function filterUserTable() {
+            var input = document.getElementById("userSearchInput").value.toLowerCase();
+            var rows = document.querySelectorAll("#usersTable tbody tr");
+            var visibleCount = 0;
+
+            rows.forEach(function(row) {
+                var text = row.textContent.toLowerCase();
+                if (text.includes(input)) {
+                    row.style.display = "";
+                    visibleCount++;
+                } else {
+                    row.style.display = "none";
+                }
+            });
+
+            document.getElementById("filteredCount").textContent = visibleCount;
+        }
+
+        function confirmDeleteUser(id, name, email) {
+            document.getElementById("deleteUserIdInput").value = id;
+            document.getElementById("deleteUserName").textContent = name;
+            document.getElementById("deleteUserEmail").textContent = email;
+            var modal = new bootstrap.Modal(document.getElementById("deleteUserModal"));
+            modal.show();
+        }
+    </script>
+}

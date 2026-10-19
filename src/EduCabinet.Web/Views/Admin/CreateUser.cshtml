@@ -1,0 +1,193 @@
+@model EduCabinet.Web.ViewModels.CreateUserViewModel
+@{
+    ViewData["Title"] = "Добавление нового пользователя";
+    var groups = ViewBag.Groups as List<EduCabinet.Web.Models.Entities.StudentGroup> ?? new();
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-md-9">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-dark text-white py-3 d-flex align-items-center justify-content-between">
+                <h4 class="mb-0 fw-bold">
+                    <i class="bi bi-person-plus-fill me-2 text-warning"></i>Добавление пользователя
+                </h4>
+                <a asp-action="Users" class="btn btn-sm btn-outline-light">
+                    <i class="bi bi-arrow-left me-1"></i>К реестру
+                </a>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="CreateUser" method="post" id="createUserForm">
+                    @Html.AntiForgeryToken()
+
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger shadow-sm mb-4" role="alert"></div>
+
+                    <!-- ФИО -->
+                    <div class="mb-3">
+                        <label asp-for="FullName" class="form-label fw-semibold">
+                            ФИО пользователя <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-person"></i></span>
+                            <input asp-for="FullName" class="form-control" placeholder="Например: Смирнов Алексей Дмитриевич" autofocus />
+                        </div>
+                        <span asp-validation-for="FullName" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Email / Логин -->
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label fw-semibold">
+                            Электронная почта (логин для входа) <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-envelope"></i></span>
+                            <input asp-for="Email" type="email" class="form-control" placeholder="user@cabinet.local" />
+                        </div>
+                        <span asp-validation-for="Email" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Роль в системе -->
+                    <div class="mb-3">
+                        <label asp-for="Role" class="form-label fw-semibold">
+                            Роль в системе (RBAC) <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-shield-check"></i></span>
+                            <select asp-for="Role" class="form-select" id="roleSelector">
+                                <option value="Student">Студент (доступ к курсам, лекциям, тестам и зачетке)</option>
+                                <option value="Teacher">Преподаватель (ведение дисциплин, журнал, проверка и выставление оценок)</option>
+                                <option value="Administrator">Администратор (полный доступ к системе, ролям, группам и аудиту)</option>
+                            </select>
+                        </div>
+                        <span asp-validation-for="Role" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Учебная группа (для студентов) -->
+                    <div class="mb-3" id="groupSelectContainer">
+                        <label asp-for="GroupId" class="form-label fw-semibold">
+                            Учебная группа студента
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-collection"></i></span>
+                            <select asp-for="GroupId" class="form-select">
+                                <option value="">-- Без привязки к группе --</option>
+                                @foreach (var g in groups)
+                                {
+                                    <option value="@g.Id">@g.Name (@g.CourseNumber курс) - @(g.Description ?? "очное отделение")</option>
+                                }
+                            </select>
+                        </div>
+                        <span asp-validation-for="GroupId" class="text-danger small"></span>
+                        <div class="form-text small">Студент будет видеть материалы дисциплин, назначенные его группе.</div>
+                    </div>
+
+                    <!-- Телефон -->
+                    <div class="mb-3">
+                        <label asp-for="PhoneNumber" class="form-label fw-semibold">Контактный телефон</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light"><i class="bi bi-telephone"></i></span>
+                            <input asp-for="PhoneNumber" class="form-control" placeholder="+7 (999) 000-00-00" />
+                        </div>
+                        <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+                    </div>
+
+                    <div class="row">
+                        <!-- Пароль -->
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="Password" class="form-label fw-semibold">
+                                Пароль <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-key"></i></span>
+                                <input asp-for="Password" class="form-control" id="passwordInput" placeholder="Минимум 4 символа" />
+                                <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('passwordInput', this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                            <span asp-validation-for="Password" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Подтверждение пароля -->
+                        <div class="col-md-6 mb-4">
+                            <label asp-for="ConfirmPassword" class="form-label fw-semibold">
+                                Подтверждение пароля <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi bi-key-fill"></i></span>
+                                <input asp-for="ConfirmPassword" class="form-control" id="confirmPasswordInput" placeholder="Повторите пароль" />
+                                <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('confirmPasswordInput', this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки быстрых шаблонов пароля -->
+                    <div class="p-3 bg-light rounded-3 mb-4 border">
+                        <span class="small text-muted fw-semibold d-block mb-2">
+                            <i class="bi bi-lightning-charge me-1 text-warning"></i>Быстрое заполнение пароля для демонстрации:
+                        </span>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="setPresetPassword('Student123!')">
+                                Student123!
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="setPresetPassword('Teacher123!')">
+                                Teacher123!
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-dark" onclick="setPresetPassword('Pass1234')">
+                                Pass1234
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between pt-3 border-top">
+                        <a asp-action="Users" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Отмена
+                        </a>
+                        <button type="submit" class="btn btn-success px-4">
+                            <i class="bi bi-check-circle-fill me-1"></i>Зарегистрировать пользователя
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function toggleGroupSelector() {
+            var role = document.getElementById("roleSelector").value;
+            var groupContainer = document.getElementById("groupSelectContainer");
+            if (role === "Student") {
+                groupContainer.style.display = "block";
+            } else {
+                groupContainer.style.display = "none";
+            }
+        }
+
+        function togglePasswordVisibility(inputId, button) {
+            var input = document.getElementById(inputId);
+            var icon = button.querySelector("i");
+            if (input.type === "password") {
+                input.type = "text";
+                icon.classList.remove("bi-eye");
+                icon.classList.add("bi-eye-slash");
+            } else {
+                input.type = "password";
+                icon.classList.remove("bi-eye-slash");
+                icon.classList.add("bi-eye");
+            }
+        }
+
+        function setPresetPassword(val) {
+            document.getElementById("passwordInput").value = val;
+            document.getElementById("confirmPasswordInput").value = val;
+        }
+
+        document.getElementById("roleSelector").addEventListener("change", toggleGroupSelector);
+        // Init on load
+        toggleGroupSelector();
+    </script>
+}

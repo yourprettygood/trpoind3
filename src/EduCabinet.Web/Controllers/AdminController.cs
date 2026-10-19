@@ -59,6 +59,8 @@ public class AdminController : Controller
             .ThenBy(u => u.FullName)
             .ToListAsync();
 
+        ViewBag.CurrentUserId = _userManager.GetUserId(User);
+
         var list = users.Select(u => new UserListItemViewModel
         {
             Id = u.Id,
@@ -66,11 +68,153 @@ public class AdminController : Controller
             Email = u.Email ?? string.Empty,
             FullName = u.FullName,
             Role = u.UserRole,
+            PhoneNumber = u.PhoneNumber,
             GroupName = u.GroupMemberships.FirstOrDefault()?.Group.Name,
             CreatedAt = u.CreatedAt
         }).ToList();
 
         return View(list);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CreateUser()
+    {
+        ViewBag.Groups = await _context.StudentGroups.OrderBy(g => g.Name).ToListAsync();
+        return View(new CreateUserViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateUser(CreateUserViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            ViewBag.Groups = await _context.StudentGroups.OrderBy(g => g.Name).ToListAsync();
+            return View(model);
+        }
+
+        var normalizedEmail = model.Email.Trim();
+        var existingUser = await _userManager.FindByEmailAsync(normalizedEmail);
+        if (existingUser != null)
+        {
+            ModelState.AddModelError("Email", "Пользователь с таким адресом электронной почты уже зарегистрирован.");
+            ViewBag.Groups = await _context.StudentGroups.OrderBy(g => g.Name).ToListAsync();
+            return View(model);
+        }
+
+        if (model.Role != "Administrator" && model.Role != "Teacher" && model.Role != "Student")
+        {
+            ModelState.AddModelError("Role", "Выбрана недопустимая роль пользователя.");
+            ViewBag.Groups = await _context.StudentGroups.OrderBy(g => g.Name).ToListAsync();
+            return View(model);
+        }
+
+        if (!await _roleManager.RoleExistsAsync(model.Role))
+        {
+            await _roleManager.CreateAsync(new IdentityRole(model.Role));
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = normalizedEmail,
+            Email = normalizedEmail,
+            FullName = model.FullName.Trim(),
+            UserRole = model.Role,
+            PhoneNumber = string.IsNullOrWhiteSpace(model.PhoneNumber) ? null : model.PhoneNumber.Trim(),
+            EmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var createResult = await _userManager.CreateAsync(user, model.Password);
+        if (!createResult.Succeeded)
+        {
+            foreach (var err in createResult.Errors)
+            {
+                ModelState.AddModelError(string.Empty, err.Description);
+            }
+            ViewBag.Groups = await _context.StudentGroups.OrderBy(g => g.Name).ToListAsync();
+            return View(model);
+        }
+
+        await _userManager.AddToRoleAsync(user, model.Role);
+
+        if (model.Role == "Student" && model.GroupId.HasValue)
+        {
+            _context.GroupMemberships.Add(new GroupMembership
+            {
+                StudentId = user.Id,
+                GroupId = model.GroupId.Value,
+                EnrolledAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+        }
+
+        var currentAdminId = _userManager.GetUserId(User);
+        _context.AuditLogs.Add(new AuditLog
+        {
+            Action = "UserCreated",
+            EntityName = "User",
+            EntityId = user.Id,
+            UserId = currentAdminId,
+            UserName = User.Identity?.Name ?? "Administrator",
+            Details = $"Администратор создал пользователя '{user.FullName}' ({user.Email}) с ролью '{model.Role}'" + 
+                      (model.Role == "Student" && model.GroupId.HasValue ? $", учебная группа ID: {model.GroupId.Value}" : ""),
+            Timestamp = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = $"Пользователь {user.FullName} ({user.Email}) успешно создан с ролью \"{model.Role}\"!";
+        return RedirectToAction(nameof(Users));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteUser(string id)
+    {
+        var currentAdminId = _userManager.GetUserId(User);
+        if (id == currentAdminId)
+        {
+            TempData["ErrorMessage"] = "Нельзя удалить свою собственную учётную запись администратора.";
+            return RedirectToAction(nameof(Users));
+        }
+
+        var user = await _context.Users
+            .Include(u => u.GroupMemberships)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (user == null)
+        {
+            TempData["ErrorMessage"] = "Пользователь не найден.";
+            return RedirectToAction(nameof(Users));
+        }
+
+        var email = user.Email;
+        var name = user.FullName;
+
+        _context.GroupMemberships.RemoveRange(user.GroupMemberships);
+        var result = await _userManager.DeleteAsync(user);
+        if (result.Succeeded)
+        {
+            _context.AuditLogs.Add(new AuditLog
+            {
+                Action = "UserDeleted",
+                EntityName = "User",
+                EntityId = id,
+                UserId = currentAdminId,
+                UserName = User.Identity?.Name ?? "Administrator",
+                Details = $"Администратор удалил пользователя '{name}' ({email}).",
+                Timestamp = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Пользователь {name} ({email}) успешно удалён.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Произошла ошибка при удалении пользователя.";
+        }
+
+        return RedirectToAction(nameof(Users));
     }
 
     [HttpGet]
