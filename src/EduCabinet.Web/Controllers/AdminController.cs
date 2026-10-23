@@ -324,6 +324,19 @@ public class AdminController : Controller
         _context.StudentGroups.Add(model);
         await _context.SaveChangesAsync();
 
+        var currentAdminId = _userManager.GetUserId(User);
+        _context.AuditLogs.Add(new AuditLog
+        {
+            Action = "GroupCreated",
+            EntityName = "StudentGroup",
+            EntityId = model.Id.ToString(),
+            UserId = currentAdminId,
+            UserName = User.Identity?.Name ?? "Administrator",
+            Details = $"Создана новая учебная группа '{model.Name}' ({model.CourseNumber} курс)" + (!string.IsNullOrWhiteSpace(model.Description) ? $": {model.Description}" : ""),
+            Timestamp = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
         TempData["SuccessMessage"] = "Учебная группа успешно добавлена!";
         return RedirectToAction(nameof(Groups));
     }
