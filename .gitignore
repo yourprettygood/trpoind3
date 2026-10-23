@@ -2,6 +2,8 @@
 GEMINI.md
 assignment_text.txt
 *.docx
+screenshots/
+
 
 # Build results
 [Dd]ebug/
