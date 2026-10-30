@@ -112,3 +112,60 @@ public class ManualUnlockViewModel
     [Required(ErrorMessage = "Укажите причину досрочного допуска")]
     public string Reason { get; set; } = string.Empty;
 }
+
+public class CreateTestQuestionViewModel
+{
+    public int LectureId { get; set; }
+    public string LectureTitle { get; set; } = string.Empty;
+    public int DisciplineId { get; set; }
+    public string DisciplineTitle { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Введите формулировку вопроса теста")]
+    [Display(Name = "Текст вопроса")]
+    public string QuestionText { get; set; } = string.Empty;
+
+    [Display(Name = "Тип вопроса")]
+    public QuestionType QuestionType { get; set; } = QuestionType.SingleChoice;
+
+    [Display(Name = "Баллы за правильный ответ")]
+    [Range(1, 100, ErrorMessage = "Количество баллов должно быть от 1 до 100")]
+    public int Points { get; set; } = 1;
+
+    [Display(Name = "Порядковый номер")]
+    [Range(1, 1000)]
+    public int OrderIndex { get; set; } = 1;
+
+    public List<AnswerOptionItemViewModel> Options { get; set; } = new();
+}
+
+public class AnswerOptionItemViewModel
+{
+    public string OptionText { get; set; } = string.Empty;
+    public bool IsCorrect { get; set; }
+    public int OrderIndex { get; set; } = 1;
+}
+
+public class UpdateTestSettingsViewModel
+{
+    [Required]
+    public int TestId { get; set; }
+
+    [Required]
+    public int LectureId { get; set; }
+
+    [Required(ErrorMessage = "Введите название теста")]
+    [Display(Name = "Название теста")]
+    public string Title { get; set; } = string.Empty;
+
+    [Display(Name = "Проходной балл (%)")]
+    [Range(1, 100, ErrorMessage = "Проходной балл должен быть от 1 до 100%")]
+    public int PassingScorePercent { get; set; } = 70;
+
+    [Display(Name = "Количество попыток")]
+    [Range(1, 100, ErrorMessage = "Количество попыток должно быть от 1 до 100")]
+    public int MaxAttempts { get; set; } = 3;
+
+    [Display(Name = "Лимит времени (в минутах)")]
+    [Range(1, 300, ErrorMessage = "Лимит времени должен быть от 1 до 300 минут")]
+    public int? TimeLimitMinutes { get; set; }
+}

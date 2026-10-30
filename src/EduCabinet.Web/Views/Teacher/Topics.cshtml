@@ -106,8 +106,11 @@
                                         }
                                     </td>
                                     <td class="text-end pe-3">
-                                        <a asp-action="Questions" asp-route-lectureId="@lec.Id" class="btn btn-outline-secondary btn-sm me-1" title="Контрольные вопросы">
-                                            <i class="bi bi-patch-question me-1"></i>Вопросы (@lec.ControlQuestions.Count)
+                                        @{
+                                            var testCount = lec.Tests.FirstOrDefault()?.Questions.Count ?? 0;
+                                        }
+                                        <a asp-action="Questions" asp-route-lectureId="@lec.Id" class="btn btn-outline-secondary btn-sm me-1" title="Вопросы и тесты к лекции">
+                                            <i class="bi bi-ui-checks text-success me-1"></i>Вопросы (@lec.ControlQuestions.Count) | Тест (@testCount)
                                         </a>
                                         <a asp-controller="Student" asp-action="Lecture" asp-route-id="@lec.Id" class="btn btn-outline-primary btn-sm" title="Предпросмотр глазами студента" target="_blank">
                                             <i class="bi bi-eye"></i>

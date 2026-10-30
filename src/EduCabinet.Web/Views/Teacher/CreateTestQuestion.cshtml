@@ -1,0 +1,278 @@
+@model EduCabinet.Web.ViewModels.CreateTestQuestionViewModel
+@{
+    ViewData["Title"] = "Добавление вопроса в тест";
+}
+
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Disciplines">Дисциплины</a></li>
+        <li class="breadcrumb-item"><a asp-action="Topics" asp-route-disciplineId="@Model.DisciplineId">@Model.DisciplineTitle</a></li>
+        <li class="breadcrumb-item"><a asp-action="Questions" asp-route-lectureId="@Model.LectureId">@Model.LectureTitle (Вопросы и тесты)</a></li>
+        <li class="breadcrumb-item active">Добавление вопроса теста</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-9 col-md-11">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-success text-white py-3 d-flex justify-content-between align-items-center">
+                <h4 class="mb-0 fw-bold">
+                    <i class="bi bi-ui-checks me-2"></i>Новый вопрос теста с вариантами ответов
+                </h4>
+                <a asp-action="Questions" asp-route-lectureId="@Model.LectureId" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>Назад к лекции
+                </a>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="CreateTestQuestion" method="post" id="testQuestionForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="LectureId" />
+                    <input type="hidden" asp-for="DisciplineId" />
+
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger shadow-sm mb-4" role="alert"></div>
+
+                    <!-- Текст вопроса -->
+                    <div class="mb-3">
+                        <label asp-for="QuestionText" class="form-label fw-bold fs-5">
+                            Формулировка вопроса теста <span class="text-danger">*</span>
+                        </label>
+                        <textarea asp-for="QuestionText" class="form-control" rows="3" 
+                                  placeholder="Например: Какой протокол обеспечивает безопасное шифрованное сетевое соединение клиента с веб-сервером?" required autofocus></textarea>
+                        <span asp-validation-for="QuestionText" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Настройки вопроса -->
+                    <div class="row g-3 mb-4 p-3 bg-light rounded-3 border">
+                        <div class="col-md-6">
+                            <label asp-for="QuestionType" class="form-label fw-semibold">Тип вопроса</label>
+                            <select asp-for="QuestionType" class="form-select" id="questionTypeSelect" onchange="handleTypeChange()">
+                                <option value="SingleChoice">Одиночный выбор (один правильный ответ)</option>
+                                <option value="MultipleChoice">Множественный выбор (несколько правильных ответов)</option>
+                                <option value="ShortAnswer">Краткий эталонный ответ (ввод текста)</option>
+                            </select>
+                            <div class="form-text small" id="typeHelpText">
+                                Студент должен будет выбрать один правильный вариант из предложенных.
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="Points" class="form-label fw-semibold">Баллов за ответ</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-star"></i></span>
+                                <input asp-for="Points" class="form-control" type="number" min="1" max="100" />
+                            </div>
+                            <span asp-validation-for="Points" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="OrderIndex" class="form-label fw-semibold">Порядковый №</label>
+                            <div class="input-group">
+                                <span class="input-group-text">#</span>
+                                <input asp-for="OrderIndex" class="form-control" type="number" min="1" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Варианты ответов -->
+                    <div class="mb-4" id="optionsSection">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h5 class="fw-bold mb-0 text-dark">
+                                    <i class="bi bi-list-check me-2 text-success"></i>Варианты ответов
+                                </h5>
+                                <p class="text-muted small mb-0">
+                                    Заполните текст вариантов и отметьте переключателем верный(е) ответ(ы).
+                                </p>
+                            </div>
+                            <button type="button" class="btn btn-outline-success btn-sm" onclick="addOptionRow()">
+                                <i class="bi bi-plus-circle me-1"></i>Добавить вариант
+                            </button>
+                        </div>
+
+                        <div id="optionsContainer" class="d-flex flex-column gap-2 mt-3">
+                            @for (int i = 0; i < Model.Options.Count; i++)
+                            {
+                                <div class="option-row card border p-3 rounded-3 shadow-sm bg-white" data-index="@i">
+                                    <div class="row g-2 align-items-center">
+                                        <div class="col-auto">
+                                            <span class="badge bg-secondary option-number">Вариант @(i + 1)</span>
+                                        </div>
+                                        <div class="col">
+                                            <input type="text" name="Options[@i].OptionText" value="@Model.Options[i].OptionText" 
+                                                   class="form-control option-text-input" placeholder="Введите текст варианта ответа..." />
+                                            <input type="hidden" name="Options[@i].OrderIndex" value="@(i + 1)" class="option-order-input" />
+                                            <input type="hidden" name="Options[@i].IsCorrect" value="@(Model.Options[i].IsCorrect ? "true" : "false")" class="option-is-correct-hidden" />
+                                        </div>
+                                        <div class="col-auto d-flex align-items-center">
+                                            <div class="form-check form-switch me-3">
+                                                <input class="form-check-input correct-toggle" type="checkbox" role="switch" 
+                                                       id="correct_@i" @(Model.Options[i].IsCorrect ? "checked" : "") onchange="onCorrectToggleChanged(this)">
+                                                <label class="form-check-label fw-semibold small" for="correct_@i">
+                                                    Правильный ответ
+                                                </label>
+                                            </div>
+                                            <button type="button" class="btn btn-outline-danger btn-sm delete-option-btn" onclick="removeOptionRow(this)" title="Удалить вариант">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Действия -->
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-4">
+                        <a asp-action="Questions" asp-route-lectureId="@Model.LectureId" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Отмена
+                        </a>
+                        <button type="submit" class="btn btn-success px-4 py-2 fs-5 fw-semibold shadow-sm">
+                            <i class="bi bi-check-circle-fill me-2"></i>Сохранить вопрос и ответы в тест
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function reindexOptions() {
+            var rows = document.querySelectorAll(".option-row");
+            rows.forEach(function(row, idx) {
+                row.setAttribute("data-index", idx);
+                var numBadge = row.querySelector(".option-number");
+                if (numBadge) numBadge.textContent = "Вариант " + (idx + 1);
+
+                var textInput = row.querySelector(".option-text-input");
+                if (textInput) textInput.setAttribute("name", "Options[" + idx + "].OptionText");
+
+                var orderInput = row.querySelector(".option-order-input");
+                if (orderInput) {
+                    orderInput.setAttribute("name", "Options[" + idx + "].OrderIndex");
+                    orderInput.value = (idx + 1);
+                }
+
+                var hiddenCorrect = row.querySelector(".option-is-correct-hidden");
+                if (hiddenCorrect) hiddenCorrect.setAttribute("name", "Options[" + idx + "].IsCorrect");
+
+                var toggle = row.querySelector(".correct-toggle");
+                if (toggle) {
+                    toggle.id = "correct_" + idx;
+                    var label = row.querySelector("label");
+                    if (label) label.setAttribute("for", "correct_" + idx);
+                }
+            });
+
+            // Prevent deleting if 2 or fewer options
+            var deleteBtns = document.querySelectorAll(".delete-option-btn");
+            deleteBtns.forEach(function(btn) {
+                btn.disabled = (rows.length <= 2);
+            });
+        }
+
+        function onCorrectToggleChanged(changedToggle) {
+            var qType = document.getElementById("questionTypeSelect").value;
+            var row = changedToggle.closest(".option-row");
+            var hiddenInput = row.querySelector(".option-is-correct-hidden");
+
+            if (qType === "SingleChoice") {
+                if (changedToggle.checked) {
+                    // Uncheck all other toggles
+                    document.querySelectorAll(".correct-toggle").forEach(function(t) {
+                        if (t !== changedToggle) {
+                            t.checked = false;
+                            var r = t.closest(".option-row");
+                            r.querySelector(".option-is-correct-hidden").value = "false";
+                            r.classList.remove("border-success", "bg-success", "bg-opacity-10");
+                        }
+                    });
+                    hiddenInput.value = "true";
+                    row.classList.add("border-success", "bg-success", "bg-opacity-10");
+                } else {
+                    hiddenInput.value = "false";
+                    row.classList.remove("border-success", "bg-success", "bg-opacity-10");
+                }
+            } else {
+                hiddenInput.value = changedToggle.checked ? "true" : "false";
+                if (changedToggle.checked) {
+                    row.classList.add("border-success", "bg-success", "bg-opacity-10");
+                } else {
+                    row.classList.remove("border-success", "bg-success", "bg-opacity-10");
+                }
+            }
+        }
+
+        function addOptionRow() {
+            var container = document.getElementById("optionsContainer");
+            var count = container.querySelectorAll(".option-row").length;
+
+            var newRow = document.createElement("div");
+            newRow.className = "option-row card border p-3 rounded-3 shadow-sm bg-white";
+            newRow.setAttribute("data-index", count);
+            newRow.innerHTML = `
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto">
+                        <span class="badge bg-secondary option-number">Вариант ${count + 1}</span>
+                    </div>
+                    <div class="col">
+                        <input type="text" name="Options[${count}].OptionText" 
+                               class="form-control option-text-input" placeholder="Введите текст варианта ответа..." />
+                        <input type="hidden" name="Options[${count}].OrderIndex" value="${count + 1}" class="option-order-input" />
+                        <input type="hidden" name="Options[${count}].IsCorrect" value="false" class="option-is-correct-hidden" />
+                    </div>
+                    <div class="col-auto d-flex align-items-center">
+                        <div class="form-check form-switch me-3">
+                            <input class="form-check-input correct-toggle" type="checkbox" role="switch" 
+                                   id="correct_${count}" onchange="onCorrectToggleChanged(this)">
+                            <label class="form-check-label fw-semibold small" for="correct_${count}">
+                                Правильный ответ
+                            </label>
+                        </div>
+                        <button type="button" class="btn btn-outline-danger btn-sm delete-option-btn" onclick="removeOptionRow(this)" title="Удалить вариант">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(newRow);
+            reindexOptions();
+        }
+
+        function removeOptionRow(btn) {
+            var row = btn.closest(".option-row");
+            var rows = document.querySelectorAll(".option-row");
+            if (rows.length > 2) {
+                row.remove();
+                reindexOptions();
+            } else {
+                alert("Тестовый вопрос должен содержать как минимум 2 варианта ответа.");
+            }
+        }
+
+        function handleTypeChange() {
+            var qType = document.getElementById("questionTypeSelect").value;
+            var help = document.getElementById("typeHelpText");
+            if (qType === "SingleChoice") {
+                help.textContent = "Студент выбирает только один правильный вариант из предложенных.";
+            } else if (qType === "MultipleChoice") {
+                help.textContent = "Студент может отметить несколько правильных вариантов (все отмеченные вами варианты должны совпадать для получения балла).";
+            } else {
+                help.textContent = "Студент вводит текстовый ответ вручную; система сравнит его с эталонным вариантом.";
+            }
+        }
+
+        // Initialize state
+        document.addEventListener("DOMContentLoaded", function() {
+            document.querySelectorAll(".correct-toggle").forEach(function(t) {
+                if (t.checked) {
+                    var r = t.closest(".option-row");
+                    r.classList.add("border-success", "bg-success", "bg-opacity-10");
+                    r.querySelector(".option-is-correct-hidden").value = "true";
+                }
+            });
+            reindexOptions();
+            handleTypeChange();
+        });
+    </script>
+}

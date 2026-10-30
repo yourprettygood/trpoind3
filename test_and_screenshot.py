@@ -19,13 +19,20 @@ def save_screenshot(page, filename, description):
     print(f"[SCREENSHOT] Capturing: {description} -> {filename}")
     path1 = os.path.join(ARTIFACT_DIR, filename)
     path2 = os.path.join(WORKSPACE_DIR, filename)
-    page.screenshot(path=path1, full_page=True)
-    page.screenshot(path=path2, full_page=True)
+    time.sleep(0.3)
+    try:
+        page.screenshot(path=path1, full_page=True)
+    except Exception:
+        page.screenshot(path=path1)
+    try:
+        page.screenshot(path=path2, full_page=True)
+    except Exception:
+        page.screenshot(path=path2)
     return path1
 
 def run_tests():
     with sync_playwright() as p:
-        browser = p.chromium.launch(channel="msedge", headless=True)
+        browser = p.chromium.launch(channel="msedge", headless=True, args=["--disable-gpu"])
         context = browser.new_context(viewport={"width": 1400, "height": 900})
         page = context.new_page()
 
@@ -108,10 +115,30 @@ def run_tests():
         page.wait_for_load_state("networkidle")
         save_screenshot(page, "13_teacher_topics.png", "Темы дисциплины 'Внедрение и поддержка КС'")
 
-        # Teacher Questions
+        # Teacher Questions & Tests
         page.goto(f"{BASE_URL}/Teacher/Questions?lectureId=1")
         page.wait_for_load_state("networkidle")
-        save_screenshot(page, "14_teacher_questions.png", "Управление контрольными вопросами к лекции")
+        save_screenshot(page, "14_teacher_questions.png", "Управление вопросами и тестами к лекции")
+
+        # Teacher Create Test Question with options
+        page.goto(f"{BASE_URL}/Teacher/CreateTestQuestion?lectureId=1")
+        page.wait_for_load_state("networkidle")
+        save_screenshot(page, "14b_teacher_create_test_question_form.png", "Форма добавления вопроса теста с вариантами ответов")
+
+        # Fill in new test question with options
+        try:
+            page.fill("textarea[name='QuestionText']", "Какой сетевой порт использует СУБД PostgreSQL по умолчанию?")
+            page.fill("input[name='Options[0].OptionText']", "5432")
+            page.fill("input[name='Options[1].OptionText']", "3306")
+            page.fill("input[name='Options[2].OptionText']", "1433")
+            page.fill("input[name='Options[3].OptionText']", "8080")
+            save_screenshot(page, "14c_teacher_create_test_question_filled.png", "Заполненный вопрос теста с 4 вариантами ответов")
+            page.locator("button[type='submit']:has-text('Сохранить вопрос и ответы в тест')").click()
+            page.wait_for_load_state("networkidle")
+            time.sleep(1)
+            save_screenshot(page, "14d_teacher_test_question_added_success.png", "Список вопросов с добавленным новым вопросом теста")
+        except Exception as e:
+            print("Notice during test question creation: " + repr(e))
 
         # Electronic Journal
         page.goto(f"{BASE_URL}/Teacher/Journal?disciplineId=1&groupId=1")
