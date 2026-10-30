@@ -232,4 +232,159 @@ public class TeacherTestManagementTests
         var updatedLec = await context.Lectures.FindAsync(2);
         updatedLec!.PassingScorePercent.Should().Be(85);
     }
+
+    [Fact]
+    public async Task Teacher_CanCreateMultipleTests_ForSingleLecture()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var userManagerMock = CreateUserManagerMock();
+        var envMock = new Mock<IWebHostEnvironment>();
+        var accessService = new LectureAccessService(context);
+
+        var discipline = new Discipline { Id = 1, Title = "Базы данных", TeacherId = "teacher_1" };
+        var topic = new Topic { Id = 1, DisciplineId = 1, Title = "Тема 1" };
+        var lecture = new Lecture { Id = 10, TopicId = 1, Title = "Лекция по SQL", Topic = topic };
+        context.Disciplines.Add(discipline);
+        context.Topics.Add(topic);
+        context.Lectures.Add(lecture);
+        await context.SaveChangesAsync();
+
+        var controller = new TeacherController(context, userManagerMock.Object, accessService, envMock.Object);
+        SetupTeacherContext(controller);
+
+        // Act 1: Create Test 1
+        var createTest1 = new CreateTestViewModel
+        {
+            LectureId = 10,
+            Title = "Тест 1: Синтаксис SELECT",
+            PassingScorePercent = 70,
+            MaxAttempts = 3,
+            TimeLimitMinutes = 15
+        };
+        var res1 = await controller.CreateTest(createTest1);
+        res1.Should().BeOfType<RedirectToActionResult>();
+
+        // Act 2: Create Test 2
+        var createTest2 = new CreateTestViewModel
+        {
+            LectureId = 10,
+            Title = "Тест 2: Индексы и оптимизация",
+            PassingScorePercent = 80,
+            MaxAttempts = 2,
+            TimeLimitMinutes = 20
+        };
+        var res2 = await controller.CreateTest(createTest2);
+        res2.Should().BeOfType<RedirectToActionResult>();
+
+        // Assert tests created
+        var allTests = await context.Tests.Where(t => t.LectureId == 10).ToListAsync();
+        allTests.Should().HaveCount(2);
+        allTests.Select(t => t.Title).Should().Contain(new[] { "Тест 1: Синтаксис SELECT", "Тест 2: Индексы и оптимизация" });
+
+        var test2 = allTests.First(t => t.Title.Contains("Индексы"));
+
+        // Act 3: Add question specifically to Test 2
+        var questionModel = new CreateTestQuestionViewModel
+        {
+            TestId = test2.Id,
+            LectureId = 10,
+            QuestionText = "Какой тип индекса строится по умолчанию для Primary Key в PostgreSQL?",
+            QuestionType = QuestionType.SingleChoice,
+            Points = 2,
+            Options = new List<AnswerOptionItemViewModel>
+            {
+                new() { OptionText = "B-Tree", IsCorrect = true, OrderIndex = 1 },
+                new() { OptionText = "Hash", IsCorrect = false, OrderIndex = 2 },
+                new() { OptionText = "GIN", IsCorrect = false, OrderIndex = 3 }
+            }
+        };
+        var resQuestion = await controller.CreateTestQuestion(questionModel);
+        resQuestion.Should().BeOfType<RedirectToActionResult>();
+
+        // Assert question is in Test 2, and Test 1 is still empty
+        var test2WithQ = await context.Tests.Include(t => t.Questions).FirstOrDefaultAsync(t => t.Id == test2.Id);
+        test2WithQ!.Questions.Should().HaveCount(1);
+        test2WithQ.Questions.First().QuestionText.Should().Contain("PostgreSQL");
+        var qId = test2WithQ.Questions.First().Id;
+        var options = await context.AnswerOptions.Where(o => o.QuestionId == qId).ToListAsync();
+        options.Should().HaveCount(3);
+        options.First(o => o.IsCorrect).OptionText.Should().Be("B-Tree");
+
+        var test1WithQ = await context.Tests.Include(t => t.Questions).FirstOrDefaultAsync(t => t.Title.Contains("Синтаксис"));
+        test1WithQ!.Questions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Teacher_CanCreateTopicTest_Successfully()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var userManagerMock = CreateUserManagerMock();
+        var envMock = new Mock<IWebHostEnvironment>();
+        var accessService = new LectureAccessService(context);
+
+        var discipline = new Discipline { Id = 1, Title = "Информационная безопасность", TeacherId = "teacher_1" };
+        var topic = new Topic { Id = 5, DisciplineId = 1, Title = "Криптография" };
+        context.Disciplines.Add(discipline);
+        context.Topics.Add(topic);
+        await context.SaveChangesAsync();
+
+        var controller = new TeacherController(context, userManagerMock.Object, accessService, envMock.Object);
+        SetupTeacherContext(controller);
+
+        var model = new CreateTopicTestViewModel
+        {
+            TopicId = 5,
+            Title = "Итоговый срез знаний по криптографии",
+            Description = "Тестирование включает симметричные и асимметричные шифры",
+            OrderIndex = 1,
+            PassingScorePercent = 75,
+            MaxAttempts = 3,
+            TimeLimitMinutes = 30
+        };
+
+        // Act
+        var result = await controller.CreateTopicTest(model);
+
+        // Assert
+        result.Should().BeOfType<RedirectToActionResult>()
+            .Which.ActionName.Should().Be("Questions");
+
+        var createdLecture = await context.Lectures.Include(l => l.Tests).FirstOrDefaultAsync(l => l.TopicId == 5);
+        createdLecture.Should().NotBeNull();
+        createdLecture!.Title.Should().Be("Итоговый срез знаний по криптографии");
+        createdLecture.RequiresTestToUnlockNext.Should().BeTrue();
+        createdLecture.Tests.Should().HaveCount(1);
+        createdLecture.Tests.First().Title.Should().Be("Итоговый срез знаний по криптографии");
+        createdLecture.Tests.First().PassingScorePercent.Should().Be(75);
+    }
+
+    [Fact]
+    public async Task Teacher_CanDeleteOneTest_WithoutAffectingOtherTests()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var userManagerMock = CreateUserManagerMock();
+        var envMock = new Mock<IWebHostEnvironment>();
+        var accessService = new LectureAccessService(context);
+
+        var lecture = new Lecture { Id = 20, Title = "Лекция" };
+        var test1 = new Test { Id = 101, LectureId = 20, Title = "Тест 1" };
+        var test2 = new Test { Id = 102, LectureId = 20, Title = "Тест 2" };
+        context.Lectures.Add(lecture);
+        context.Tests.AddRange(test1, test2);
+        await context.SaveChangesAsync();
+
+        var controller = new TeacherController(context, userManagerMock.Object, accessService, envMock.Object);
+        SetupTeacherContext(controller);
+
+        // Act
+        var result = await controller.DeleteTest(101, 20);
+
+        // Assert
+        result.Should().BeOfType<RedirectToActionResult>();
+        (await context.Tests.FindAsync(101)).Should().BeNull();
+        (await context.Tests.FindAsync(102)).Should().NotBeNull();
+    }
 }

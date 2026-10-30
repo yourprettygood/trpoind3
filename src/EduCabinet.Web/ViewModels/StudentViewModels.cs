@@ -54,6 +54,10 @@ public class StudentLectureViewViewModel
     public List<StudentAnswer> ExistingAnswers { get; set; } = new();
     public Test? Test { get; set; }
     public List<TestAttempt> TestAttempts { get; set; } = new();
+
+    // Support for multiple tests in a lecture / topic
+    public List<Test> Tests { get; set; } = new();
+    public Dictionary<int, List<TestAttempt>> TestAttemptsByTestId { get; set; } = new();
 }
 
 public class StudentGradeBookViewModel

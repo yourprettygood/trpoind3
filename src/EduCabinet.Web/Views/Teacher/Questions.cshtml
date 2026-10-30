@@ -1,8 +1,7 @@
 @model EduCabinet.Web.Models.Entities.Lecture
 @{
-    ViewData["Title"] = "Вопросы и тестирование: " + Model.Title;
-    var test = Model.Tests.FirstOrDefault();
-    var testQuestions = test?.Questions.OrderBy(q => q.OrderIndex).ToList() ?? new List<EduCabinet.Web.Models.Entities.TestQuestion>();
+    ViewData["Title"] = "Вопросы и тесты: " + Model.Title;
+    var totalTestQuestions = Model.Tests.Sum(t => t.Questions.Count);
 }
 
 <nav aria-label="breadcrumb" class="mb-3">
@@ -16,179 +15,282 @@
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
     <div>
         <h3 class="fw-bold mb-1">
-            <i class="bi bi-patch-question-fill text-primary me-2"></i>Вопросы и тесты к лекции
+            <i class="bi bi-patch-question-fill text-primary me-2"></i>Вопросы и тесты
         </h3>
-        <p class="text-muted mb-0">Лекция: <strong>@Model.Title</strong></p>
+        <p class="text-muted mb-0">Материал: <strong>@Model.Title</strong> (Тема: @Model.Topic.Title)</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
-        <a asp-action="CreateTestQuestion" asp-route-lectureId="@Model.Id" class="btn btn-success shadow-sm">
-            <i class="bi bi-ui-checks me-1"></i>Добавить тестовый вопрос (с вариантами)
-        </a>
+        <button type="button" class="btn btn-success shadow-sm" data-bs-toggle="modal" data-bs-target="#createTestModal">
+            <i class="bi bi-plus-circle me-1"></i>+ Создать новый тест
+        </button>
         <a asp-action="CreateQuestion" asp-route-lectureId="@Model.Id" class="btn btn-outline-primary shadow-sm">
-            <i class="bi bi-plus-circle me-1"></i>Добавить контрольный вопрос
+            <i class="bi bi-pencil-square me-1"></i>+ Добавить письменный вопрос
         </a>
-        @if (test != null)
-        {
-            <button type="button" class="btn btn-outline-secondary shadow-sm" data-bs-toggle="modal" data-bs-target="#testSettingsModal" title="Настройки параметров теста">
-                <i class="bi bi-gear me-1"></i>Параметры теста
-            </button>
-        }
     </div>
 </div>
 
-<!-- ================= 1. БЛОК ТЕСТИРОВАНИЯ ================= -->
-<div class="card shadow-sm border-0 rounded-3 mb-4">
-    <div class="card-header bg-success text-white py-3 d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center">
-            <i class="bi bi-ui-checks-grid fs-4 me-2"></i>
-            <div>
-                <h5 class="mb-0 fw-bold">Итоговое онлайн-тестирование по лекции</h5>
-                <small class="opacity-75">Вопросы с автоматической проверкой правильности ответов</small>
-            </div>
+<!-- ================= 1. БЛОК ОНЛАЙН-ТЕСТОВ ================= -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="fw-bold mb-0 text-dark">
+        <i class="bi bi-ui-checks text-success me-2"></i>Онлайн-тесты (@Model.Tests.Count @(Model.Tests.Count == 1 ? "тест" : (Model.Tests.Count < 5 ? "теста" : "тестов")), всего вопросов: @totalTestQuestions)
+    </h4>
+    <span class="text-muted small">Вы можете создать несколько разных тестов внутри одной темы или лекции</span>
+</div>
+
+@if (!Model.Tests.Any())
+{
+    <div class="card shadow-sm border-0 rounded-3 mb-4">
+        <div class="card-body p-5 text-center text-muted">
+            <i class="bi bi-ui-checks display-4 text-secondary mb-3 d-block"></i>
+            <h5 class="fw-bold text-dark">В этой теме пока нет ни одного теста</h5>
+            <p class="small text-muted mb-3">
+                Создайте тест с автоматической проверкой (например, «Входной тест», «Промежуточный срез» или «Итоговый контроль»).
+            </p>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createTestModal">
+                <i class="bi bi-plus-circle me-1"></i>Создать первый тест
+            </button>
         </div>
-        <span class="badge bg-light text-dark fs-6 px-3 py-2">
-            Вопросов в тесте: @testQuestions.Count
-        </span>
     </div>
-
-    @if (test != null)
+}
+else
+{
+    @foreach (var test in Model.Tests.OrderBy(t => t.Id))
     {
-        <!-- Информационная плашка настроек теста -->
-        <div class="bg-light p-3 border-bottom d-flex flex-wrap gap-4 align-items-center text-muted small">
-            <div>
-                <i class="bi bi-tag-fill me-1 text-primary"></i>Название: <strong class="text-dark">@test.Title</strong>
-            </div>
-            <div>
-                <i class="bi bi-percent me-1 text-success"></i>Проходной балл: <strong class="text-dark">@test.PassingScorePercent%</strong>
-            </div>
-            <div>
-                <i class="bi bi-arrow-repeat me-1 text-warning"></i>Попыток: <strong class="text-dark">@test.MaxAttempts</strong>
-            </div>
-            <div>
-                <i class="bi bi-stopwatch me-1 text-danger"></i>Таймер: <strong class="text-dark">@(test.TimeLimitMinutes.HasValue ? $"{test.TimeLimitMinutes} мин." : "Без ограничения")</strong>
-            </div>
-            <div class="ms-auto">
-                <a asp-action="CreateTestQuestion" asp-route-lectureId="@Model.Id" class="btn btn-sm btn-success">
-                    <i class="bi bi-plus-circle me-1"></i>+ Добавить вопрос с ответами
-                </a>
-            </div>
-        </div>
-    }
+        var testQuestions = test.Questions.OrderBy(q => q.OrderIndex).ToList();
+        string modalId = $"testSettingsModal_{test.Id}";
 
-    <div class="card-body p-0">
-        @if (!testQuestions.Any())
-        {
-            <div class="p-5 text-center text-muted">
-                <i class="bi bi-ui-checks display-4 text-secondary mb-3 d-block"></i>
-                <h6 class="fw-bold text-dark">В тесте пока нет ни одного вопроса</h6>
-                <p class="small text-muted mb-3">
-                    Добавьте вопросы с вариантами выбора (A, B, C, D) и указанием правильного ответа, чтобы студенты могли пройти тестирование.
-                </p>
-                <a asp-action="CreateTestQuestion" asp-route-lectureId="@Model.Id" class="btn btn-success">
-                    <i class="bi bi-plus-circle me-1"></i>Создать первый вопрос теста
-                </a>
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle fs-6 px-2 py-1">
+                        <i class="bi bi-check2-all me-1"></i>Тест
+                    </span>
+                    <h5 class="mb-0 fw-bold text-dark">@test.Title</h5>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <a asp-action="CreateTestQuestion" asp-route-testId="@test.Id" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus-circle me-1"></i>+ Добавить вопрос
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#@modalId" title="Настройки теста">
+                        <i class="bi bi-gear me-1"></i>Настройки
+                    </button>
+                    <form asp-action="DeleteTest" method="post" class="d-inline" onsubmit="return confirm('Вы действительно хотите удалить тест «@test.Title» со всеми его вопросами и попытками?');">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="testId" value="@test.Id" />
+                        <input type="hidden" name="lectureId" value="@Model.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить этот тест">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
             </div>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width: 5%;">№</th>
-                            <th style="width: 45%;">Формулировка вопроса</th>
-                            <th style="width: 35%;">Варианты ответов</th>
-                            <th class="text-center" style="width: 8%;">Балл</th>
-                            <th class="text-end pe-3" style="width: 7%;">Действие</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var tq in testQuestions)
-                        {
-                            <tr>
-                                <td class="fw-bold text-center">@tq.OrderIndex</td>
-                                <td>
-                                    <div class="fw-semibold text-dark fs-6 mb-1">@tq.QuestionText</div>
-                                    <span class="badge bg-light text-secondary border small">
-                                        @if (tq.QuestionType == EduCabinet.Web.Models.Entities.QuestionType.SingleChoice)
-                                        {
-                                            <span>Одиночный выбор</span>
-                                        }
-                                        else if (tq.QuestionType == EduCabinet.Web.Models.Entities.QuestionType.MultipleChoice)
-                                        {
-                                            <span>Множественный выбор</span>
-                                        }
-                                        else
-                                        {
-                                            <span>Краткий ответ</span>
-                                        }
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="d-flex flex-column gap-1">
-                                        @foreach (var opt in tq.Options.OrderBy(o => o.OrderIndex))
-                                        {
-                                            <div class="d-flex align-items-center">
-                                                @if (opt.IsCorrect)
+
+            <!-- Информационная плашка настроек теста -->
+            <div class="bg-light px-3 py-2 border-bottom d-flex flex-wrap gap-4 align-items-center text-muted small">
+                <div>
+                    <i class="bi bi-question-circle me-1 text-primary"></i>Вопросов: <strong class="text-dark">@testQuestions.Count</strong>
+                </div>
+                <div>
+                    <i class="bi bi-percent me-1 text-success"></i>Проходной балл: <strong class="text-dark">@test.PassingScorePercent%</strong>
+                </div>
+                <div>
+                    <i class="bi bi-arrow-repeat me-1 text-warning"></i>Попыток: <strong class="text-dark">@test.MaxAttempts</strong>
+                </div>
+                <div>
+                    <i class="bi bi-stopwatch me-1 text-danger"></i>Таймер: <strong class="text-dark">@(test.TimeLimitMinutes.HasValue ? $"{test.TimeLimitMinutes} мин." : "Без ограничения")</strong>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                @if (!testQuestions.Any())
+                {
+                    <div class="p-4 text-center text-muted">
+                        <p class="small text-muted mb-2">В этом тесте пока нет вопросов.</p>
+                        <a asp-action="CreateTestQuestion" asp-route-testId="@test.Id" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-plus-circle me-1"></i>Добавить вопрос к этому тесту
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%;">№</th>
+                                    <th style="width: 45%;">Формулировка вопроса</th>
+                                    <th style="width: 35%;">Варианты ответов</th>
+                                    <th class="text-center" style="width: 8%;">Баллы</th>
+                                    <th class="text-end pe-3" style="width: 7%;">Действие</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var q in testQuestions)
+                                {
+                                    <tr>
+                                        <td>@q.OrderIndex</td>
+                                        <td>
+                                            <div class="fw-semibold text-dark">@q.QuestionText</div>
+                                            <div class="mt-1">
+                                                @if (q.QuestionType == EduCabinet.Web.Models.Entities.QuestionType.SingleChoice)
                                                 {
-                                                    <span class="badge bg-success bg-opacity-10 text-success border border-success me-2 py-1 px-2 d-inline-flex align-items-center">
-                                                        <i class="bi bi-check-circle-fill me-1"></i> @opt.OptionText
-                                                        <span class="ms-1 small fw-bold">(Верный)</span>
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle small">
+                                                        <i class="bi bi-ui-radios me-1"></i>Один верный ответ
+                                                    </span>
+                                                }
+                                                else if (q.QuestionType == EduCabinet.Web.Models.Entities.QuestionType.MultipleChoice)
+                                                {
+                                                    <span class="badge bg-warning-subtle text-dark border border-warning-subtle small">
+                                                        <i class="bi bi-ui-checks me-1"></i>Множественный выбор
                                                     </span>
                                                 }
                                                 else
                                                 {
-                                                    <span class="badge bg-light text-secondary border me-2 py-1 px-2">
-                                                        @opt.OptionText
+                                                    <span class="badge bg-secondary-subtle text-secondary border small">
+                                                        Ввод текста
                                                     </span>
                                                 }
                                             </div>
-                                        }
-                                    </div>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-secondary">@tq.Points</span>
-                                </td>
-                                <td class="text-end pe-3">
-                                    <form asp-action="DeleteTestQuestion" method="post" class="d-inline" onsubmit="return confirm('Вы уверены, что хотите удалить этот тестовый вопрос?');">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@tq.Id" />
-                                        <input type="hidden" name="lectureId" value="@Model.Id" />
-                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Удалить вопрос">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </div>
-</div>
-
-<!-- ================= 2. БЛОК КОНТРОЛЬНЫХ ВОПРОСОВ ================= -->
-<div class="card shadow-sm border-0 rounded-3 mb-4">
-    <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center">
-            <i class="bi bi-patch-question fs-4 me-2"></i>
-            <div>
-                <h5 class="mb-0 fw-bold">Контрольные вопросы к лекции</h5>
-                <small class="opacity-75">Письменные вопросы для самопроверки и рецензирования преподавателем</small>
+                                        </td>
+                                        <td>
+                                            @if (q.Options.Any())
+                                            {
+                                                <ul class="list-unstyled mb-0 small">
+                                                    @foreach (var opt in q.Options.OrderBy(o => o.OrderIndex))
+                                                    {
+                                                        <li class="mb-1 d-flex align-items-center">
+                                                            @if (opt.IsCorrect)
+                                                            {
+                                                                <span class="badge bg-success me-2 px-2 py-1">
+                                                                    <i class="bi bi-check-lg me-1"></i>Верно
+                                                                </span>
+                                                                <strong class="text-success">@opt.OptionText</strong>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-light text-muted border me-2 px-2 py-1">
+                                                                    <i class="bi bi-circle me-1"></i>Вариант
+                                                                </span>
+                                                                <span class="text-secondary">@opt.OptionText</span>
+                                                            }
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted small">Нет вариантов ответов</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">
+                                                @q.Points @(q.Points == 1 ? "балл" : "балла")
+                                            </span>
+                                        </td>
+                                        <td class="text-end pe-3">
+                                            <form asp-action="DeleteTestQuestion" method="post" class="d-inline" onsubmit="return confirm('Удалить этот тестовый вопрос?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@q.Id" />
+                                                <input type="hidden" name="lectureId" value="@Model.Id" />
+                                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Удалить вопрос">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
             </div>
         </div>
-        <span class="badge bg-light text-dark fs-6 px-3 py-2">
-            Вопросов: @Model.ControlQuestions.Count
-        </span>
+
+        <!-- Модальное окно настроек конкретного теста -->
+        <div class="modal fade" id="@modalId" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-sliders me-2"></i>Параметры теста «@test.Title»
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                    </div>
+                    <form asp-action="UpdateTestSettings" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="TestId" value="@test.Id" />
+                        <input type="hidden" name="LectureId" value="@Model.Id" />
+
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Название теста</label>
+                                <input type="text" name="Title" class="form-control" value="@test.Title" required />
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Проходной балл (%)</label>
+                                    <div class="input-group">
+                                        <input type="number" name="PassingScorePercent" class="form-control" value="@test.PassingScorePercent" min="1" max="100" required />
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Количество попыток</label>
+                                    <input type="number" name="MaxAttempts" class="form-control" value="@test.MaxAttempts" min="1" max="100" required />
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <label class="form-label fw-semibold">Лимит времени (минуты)</label>
+                                <div class="input-group">
+                                    <input type="number" name="TimeLimitMinutes" class="form-control" value="@test.TimeLimitMinutes" min="1" max="300" placeholder="Без ограничения" />
+                                    <span class="input-group-text">мин.</span>
+                                </div>
+                                <div class="form-text small">Оставьте пустым, если тест должен быть без ограничения по времени.</div>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer bg-light">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check2 me-1"></i>Сохранить параметры
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+<!-- ================= 2. БЛОК ПИСЬМЕННЫХ КОНТРОЛЬНЫХ ВОПРОСОВ ================= -->
+<div class="card shadow-sm border-0 rounded-3 mb-4">
+    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-file-earmark-text text-primary fs-4 me-2"></i>
+            <div>
+                <h5 class="mb-0 fw-bold">Письменные контрольные вопросы к лекции</h5>
+                <small class="text-muted">Вопросы для развёрнутого ответа студента с ручной проверкой преподавателем</small>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-light text-dark fs-6 px-3 py-2 border">
+                Вопросов: @Model.ControlQuestions.Count
+            </span>
+            <a asp-action="CreateQuestion" asp-route-lectureId="@Model.Id" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-plus-circle me-1"></i>Добавить вопрос
+            </a>
+        </div>
     </div>
+
     <div class="card-body p-0">
         @if (!Model.ControlQuestions.Any())
         {
             <div class="p-4 text-center text-muted">
-                <p class="mb-2">К этой лекции пока не добавлено ни одного письменного контрольного вопроса.</p>
+                <p class="small text-muted mb-2">В этой лекции нет письменных контрольных вопросов.</p>
                 <a asp-action="CreateQuestion" asp-route-lectureId="@Model.Id" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-plus-circle me-1"></i>Добавить контрольный вопрос
+                    <i class="bi bi-plus-circle me-1"></i>Добавить письменный вопрос
                 </a>
             </div>
         }
@@ -199,10 +301,9 @@
                     <thead class="table-light">
                         <tr>
                             <th style="width: 5%;">№</th>
-                            <th style="width: 45%;">Текст вопроса</th>
+                            <th style="width: 50%;">Текст вопроса</th>
                             <th>Тип вопроса</th>
                             <th class="text-center">Макс. балл</th>
-                            <th>Эталон ответа</th>
                             <th class="text-end pe-3">Действие</th>
                         </tr>
                     </thead>
@@ -213,12 +314,9 @@
                                 <td>@q.OrderIndex</td>
                                 <td class="fw-semibold">@q.QuestionText</td>
                                 <td>
-                                    <span class="badge bg-light text-dark border">@q.QuestionType</span>
+                                    <span class="badge bg-light text-dark border">Развёрнутый ответ</span>
                                 </td>
                                 <td class="text-center">@q.MaxScore</td>
-                                <td class="text-muted small">
-                                    @(string.IsNullOrEmpty(q.CorrectAnswer) ? "Ручная проверка" : q.CorrectAnswer)
-                                </td>
                                 <td class="text-end pe-3">
                                     <form asp-action="DeleteControlQuestion" method="post" class="d-inline" onsubmit="return confirm('Удалить этот контрольный вопрос?');">
                                         @Html.AntiForgeryToken()
@@ -238,61 +336,57 @@
     </div>
 </div>
 
-<!-- ================= МОДАЛЬНОЕ ОКНО НАСТРОЕК ТЕСТА ================= -->
-@if (test != null)
-{
-    <div class="modal fade" id="testSettingsModal" tabindex="-1" aria-labelledby="testSettingsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header bg-dark text-white">
-                    <h5 class="modal-title" id="testSettingsModalLabel">
-                        <i class="bi bi-sliders me-2"></i>Параметры тестирования
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                </div>
-                <form asp-action="UpdateTestSettings" method="post">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="TestId" value="@test.Id" />
-                    <input type="hidden" name="LectureId" value="@Model.Id" />
-
-                    <div class="modal-body p-4">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Название теста</label>
-                            <input type="text" name="Title" class="form-control" value="@test.Title" required />
-                        </div>
-
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Проходной балл (%)</label>
-                                <div class="input-group">
-                                    <input type="number" name="PassingScorePercent" class="form-control" value="@test.PassingScorePercent" min="1" max="100" required />
-                                    <span class="input-group-text">%</span>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Количество попыток</label>
-                                <input type="number" name="MaxAttempts" class="form-control" value="@test.MaxAttempts" min="1" max="100" required />
-                            </div>
-                        </div>
-
-                        <div class="mt-3">
-                            <label class="form-label fw-semibold">Лимит времени на тест (минуты)</label>
-                            <div class="input-group">
-                                <input type="number" name="TimeLimitMinutes" class="form-control" value="@test.TimeLimitMinutes" min="1" max="300" placeholder="Без ограничения" />
-                                <span class="input-group-text">мин.</span>
-                            </div>
-                            <div class="form-text small">Оставьте пустым, если тест должен быть без ограничения по времени.</div>
-                        </div>
-                    </div>
-
-                    <div class="modal-footer bg-light">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check2 me-1"></i>Сохранить параметры
-                        </button>
-                    </div>
-                </form>
+<!-- ================= МОДАЛЬНОЕ ОКНО СОЗДАНИЯ НОВОГО ТЕСТА ================= -->
+<div class="modal fade" id="createTestModal" tabindex="-1" aria-labelledby="createTestModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="createTestModalLabel">
+                    <i class="bi bi-plus-circle me-2"></i>Создать новый тест
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Закрыть"></button>
             </div>
+            <form asp-action="CreateTest" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="LectureId" value="@Model.Id" />
+
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Название нового теста <span class="text-danger">*</span></label>
+                        <input type="text" name="Title" class="form-control" placeholder="Например: Промежуточный тест №2 или Итоговый срез" required autofocus />
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Проходной балл (%)</label>
+                            <div class="input-group">
+                                <input type="number" name="PassingScorePercent" class="form-control" value="70" min="1" max="100" required />
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Количество попыток</label>
+                            <input type="number" name="MaxAttempts" class="form-control" value="3" min="1" max="50" required />
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="form-label fw-semibold">Лимит времени (минуты)</label>
+                        <div class="input-group">
+                            <input type="number" name="TimeLimitMinutes" class="form-control" value="15" min="1" max="300" placeholder="Без ограничения" />
+                            <span class="input-group-text">мин.</span>
+                        </div>
+                        <div class="form-text small">Оставьте пустым, если тест должен быть без ограничения по времени.</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success fw-semibold">
+                        <i class="bi bi-check-circle me-1"></i>Создать тест
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-}
+</div>

@@ -47,16 +47,21 @@
                     <small class="text-muted">@topic.Description</small>
                 }
             </div>
-            <a asp-action="CreateLecture" asp-route-topicId="@topic.Id" class="btn btn-outline-primary btn-sm">
-                <i class="bi bi-file-earmark-plus me-1"></i>Добавить лекцию
-            </a>
+            <div class="d-flex gap-2">
+                <a asp-action="CreateTopicTest" asp-route-topicId="@topic.Id" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-ui-checks me-1"></i>+ Добавить тест в тему
+                </a>
+                <a asp-action="CreateLecture" asp-route-topicId="@topic.Id" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-file-earmark-plus me-1"></i>Добавить лекцию
+                </a>
+            </div>
         </div>
 
         <div class="card-body p-0">
             @if (!topic.Lectures.Any())
             {
-                <div class="p-3 text-muted text-center small">
-                    В теме ещё нет лекций.
+                <div class="p-4 text-muted text-center small">
+                    В теме ещё нет материалов или тестов. Нажмите <strong>«Добавить лекцию»</strong> или <strong>«+ Добавить тест в тему»</strong>.
                 </div>
             }
             else
@@ -66,8 +71,8 @@
                         <thead class="table-light">
                             <tr>
                                 <th style="width: 5%;">№</th>
-                                <th style="width: 40%;">Название лекции</th>
-                                <th>Файл теории</th>
+                                <th style="width: 38%;">Название материала</th>
+                                <th>Формат</th>
                                 <th class="text-center">Тестирование</th>
                                 <th class="text-end pe-3">Действия</th>
                             </tr>
@@ -75,11 +80,26 @@
                         <tbody>
                             @foreach (var lec in topic.Lectures)
                             {
+                                var totalTests = lec.Tests.Count;
+                                var totalTestQuestions = lec.Tests.Sum(t => t.Questions.Count);
+                                bool isTestModule = totalTests > 0 && string.IsNullOrEmpty(lec.ContentFilePath) && string.IsNullOrEmpty(lec.ContentHtml);
+
                                 <tr>
                                     <td>@lec.OrderIndex</td>
                                     <td>
-                                        <div class="fw-bold">@lec.Title</div>
-                                        <small class="text-muted">@lec.Description</small>
+                                        <div class="d-flex align-items-center gap-2">
+                                            @if (isTestModule)
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                    <i class="bi bi-check2-square me-1"></i>Тест темы
+                                                </span>
+                                            }
+                                            <div class="fw-bold">@lec.Title</div>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(lec.Description))
+                                        {
+                                            <small class="text-muted d-block mt-1">@lec.Description</small>
+                                        }
                                     </td>
                                     <td>
                                         @if (!string.IsNullOrEmpty(lec.ContentFilePath))
@@ -88,13 +108,23 @@
                                                 <i class="bi bi-file-earmark-pdf text-danger me-1"></i>@(lec.ContentFileName ?? "Документ")
                                             </span>
                                         }
+                                        else if (isTestModule)
+                                        {
+                                            <span class="badge bg-purple-subtle text-primary border">Онлайн-тест</span>
+                                        }
                                         else
                                         {
                                             <span class="text-muted small">Встроенный текст</span>
                                         }
                                     </td>
                                     <td class="text-center">
-                                        @if (lec.RequiresTestToUnlockNext)
+                                        @if (totalTests > 0)
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                                Тестов: @totalTests (вопр: @totalTestQuestions)
+                                            </span>
+                                        }
+                                        else if (lec.RequiresTestToUnlockNext)
                                         {
                                             <span class="badge bg-info-subtle text-info border border-info-subtle">
                                                 Порог: @lec.PassingScorePercent%
@@ -106,11 +136,8 @@
                                         }
                                     </td>
                                     <td class="text-end pe-3">
-                                        @{
-                                            var testCount = lec.Tests.FirstOrDefault()?.Questions.Count ?? 0;
-                                        }
-                                        <a asp-action="Questions" asp-route-lectureId="@lec.Id" class="btn btn-outline-secondary btn-sm me-1" title="Вопросы и тесты к лекции">
-                                            <i class="bi bi-ui-checks text-success me-1"></i>Вопросы (@lec.ControlQuestions.Count) | Тест (@testCount)
+                                        <a asp-action="Questions" asp-route-lectureId="@lec.Id" class="btn btn-outline-secondary btn-sm me-1" title="Вопросы и тесты">
+                                            <i class="bi bi-ui-checks text-success me-1"></i>Вопросы (@lec.ControlQuestions.Count) | Тесты (@totalTests)
                                         </a>
                                         <a asp-controller="Student" asp-action="Lecture" asp-route-id="@lec.Id" class="btn btn-outline-primary btn-sm" title="Предпросмотр глазами студента" target="_blank">
                                             <i class="bi bi-eye"></i>

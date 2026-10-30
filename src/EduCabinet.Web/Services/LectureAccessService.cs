@@ -181,6 +181,7 @@ public class LectureAccessService : ILectureAccessService
         var lecture = await _context.Lectures
             .Include(l => l.ControlQuestions)
             .Include(l => l.Tests)
+                .ThenInclude(t => t.Questions)
             .FirstOrDefaultAsync(l => l.Id == lectureId);
 
         if (lecture == null) return;
@@ -210,20 +211,21 @@ public class LectureAccessService : ILectureAccessService
         progress.AreQuestionsAnswered = questionsPassed;
         progress.AreQuestionsPassed = questionsPassed;
 
-        // Check test
+        // Check tests (all tests with questions must be passed)
         bool testPassed = true;
         int? bestScore = null;
-        if (lecture.Tests.Any())
+        var testsWithQuestions = lecture.Tests.Where(t => t.Questions.Any()).ToList();
+        if (testsWithQuestions.Any())
         {
-            var testIds = lecture.Tests.Select(t => t.Id).ToList();
+            var testIds = testsWithQuestions.Select(t => t.Id).ToList();
             var attempts = await _context.TestAttempts
                 .Where(a => a.StudentId == studentId && testIds.Contains(a.TestId) && a.Status == AttemptStatus.Completed)
                 .ToListAsync();
 
             if (attempts.Any())
             {
-                bestScore = attempts.Max(a => a.ScorePercent);
-                testPassed = attempts.Any(a => a.IsPassed);
+                bestScore = (int)Math.Round(attempts.Average(a => a.ScorePercent));
+                testPassed = testsWithQuestions.All(t => attempts.Any(a => a.TestId == t.Id && a.IsPassed));
             }
             else
             {

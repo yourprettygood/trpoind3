@@ -115,6 +115,8 @@ public class ManualUnlockViewModel
 
 public class CreateTestQuestionViewModel
 {
+    public int TestId { get; set; }
+    public string TestTitle { get; set; } = string.Empty;
     public int LectureId { get; set; }
     public string LectureTitle { get; set; } = string.Empty;
     public int DisciplineId { get; set; }
@@ -143,6 +145,62 @@ public class AnswerOptionItemViewModel
     public string OptionText { get; set; } = string.Empty;
     public bool IsCorrect { get; set; }
     public int OrderIndex { get; set; } = 1;
+}
+
+public class CreateTestViewModel
+{
+    [Required]
+    public int LectureId { get; set; }
+
+    [Required(ErrorMessage = "Введите название теста")]
+    [Display(Name = "Название теста")]
+    public string Title { get; set; } = string.Empty;
+
+    [Display(Name = "Проходной балл (%)")]
+    [Range(1, 100, ErrorMessage = "Проходной балл должен быть от 1 до 100%")]
+    public int PassingScorePercent { get; set; } = 70;
+
+    [Display(Name = "Количество попыток")]
+    [Range(1, 100, ErrorMessage = "Количество попыток должно быть от 1 до 100")]
+    public int MaxAttempts { get; set; } = 3;
+
+    [Display(Name = "Лимит времени (минут)")]
+    [Range(1, 300, ErrorMessage = "Лимит времени должен быть от 1 до 300 минут")]
+    public int? TimeLimitMinutes { get; set; }
+}
+
+public class CreateTopicTestViewModel
+{
+    [Required]
+    public int TopicId { get; set; }
+    public string TopicTitle { get; set; } = string.Empty;
+    public int DisciplineId { get; set; }
+    public string DisciplineTitle { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Введите название теста")]
+    [Display(Name = "Название теста")]
+    public string Title { get; set; } = string.Empty;
+
+    [Display(Name = "Краткое описание / инструкция")]
+    public string Description { get; set; } = string.Empty;
+
+    [Display(Name = "Порядковый номер в теме")]
+    public int OrderIndex { get; set; } = 1;
+
+    [Display(Name = "Проходной балл (%)")]
+    [Range(1, 100, ErrorMessage = "Проходной балл должен быть от 1 до 100%")]
+    public int PassingScorePercent { get; set; } = 70;
+
+    [Display(Name = "Количество попыток")]
+    [Range(1, 100, ErrorMessage = "Количество попыток должно быть от 1 до 100")]
+    public int MaxAttempts { get; set; } = 3;
+
+    [Display(Name = "Лимит времени (минут)")]
+    [Range(1, 300, ErrorMessage = "Лимит времени должен быть от 1 до 300 минут")]
+    public int? TimeLimitMinutes { get; set; }
+
+    [Display(Name = "Срок сдачи (дедлайн)")]
+    public DateTime? Deadline { get; set; }
 }
 
 public class UpdateTestSettingsViewModel

@@ -17,16 +17,19 @@
         <div class="card shadow-sm border-0 rounded-3">
             <div class="card-header bg-success text-white py-3 d-flex justify-content-between align-items-center">
                 <h4 class="mb-0 fw-bold">
-                    <i class="bi bi-ui-checks me-2"></i>Новый вопрос теста с вариантами ответов
+                    <i class="bi bi-ui-checks me-2"></i>Новый вопрос в тест «@(string.IsNullOrEmpty(Model.TestTitle) ? "Тест" : Model.TestTitle)»
                 </h4>
                 <a asp-action="Questions" asp-route-lectureId="@Model.LectureId" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-arrow-left me-1"></i>Назад к лекции
+                    <i class="bi bi-arrow-left me-1"></i>Назад к вопросам и тестам
                 </a>
             </div>
             <div class="card-body p-4">
                 <form asp-action="CreateTestQuestion" method="post" id="testQuestionForm">
                     @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="TestId" />
+                    <input type="hidden" asp-for="TestTitle" />
                     <input type="hidden" asp-for="LectureId" />
+                    <input type="hidden" asp-for="LectureTitle" />
                     <input type="hidden" asp-for="DisciplineId" />
 
                     <div asp-validation-summary="ModelOnly" class="alert alert-danger shadow-sm mb-4" role="alert"></div>

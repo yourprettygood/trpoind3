@@ -158,6 +158,7 @@ public class StudentController : Controller
                 .ThenInclude(t => t.Discipline)
             .Include(l => l.ControlQuestions.OrderBy(q => q.OrderIndex))
             .Include(l => l.Tests)
+                .ThenInclude(t => t.Questions)
             .FirstOrDefaultAsync(l => l.Id == id);
 
         if (lecture == null) return NotFound();
@@ -172,15 +173,19 @@ public class StudentController : Controller
             .Where(a => a.StudentId == studentId && a.Question.LectureId == id)
             .ToListAsync();
 
-        var test = lecture.Tests.FirstOrDefault();
-        List<TestAttempt> attempts = new();
-        if (test != null)
-        {
-            attempts = await _context.TestAttempts
-                .Where(a => a.StudentId == studentId && a.TestId == test.Id)
-                .OrderByDescending(a => a.StartedAt)
-                .ToListAsync();
-        }
+        var tests = lecture.Tests.OrderBy(t => t.Id).ToList();
+        var testIds = tests.Select(t => t.Id).ToList();
+        var allAttempts = await _context.TestAttempts
+            .Where(a => a.StudentId == studentId && testIds.Contains(a.TestId))
+            .OrderByDescending(a => a.StartedAt)
+            .ToListAsync();
+
+        var attemptsByTestId = tests.ToDictionary(
+            t => t.Id,
+            t => allAttempts.Where(a => a.TestId == t.Id).ToList()
+        );
+
+        var firstTest = tests.FirstOrDefault();
 
         var model = new StudentLectureViewViewModel
         {
@@ -190,8 +195,10 @@ public class StudentController : Controller
             LockReason = access.Reason,
             Questions = lecture.ControlQuestions.ToList(),
             ExistingAnswers = answers,
-            Test = test,
-            TestAttempts = attempts
+            Test = firstTest,
+            TestAttempts = firstTest != null && attemptsByTestId.ContainsKey(firstTest.Id) ? attemptsByTestId[firstTest.Id] : new List<TestAttempt>(),
+            Tests = tests,
+            TestAttemptsByTestId = attemptsByTestId
         };
 
         if (access.IsAllowed)

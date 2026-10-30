@@ -344,43 +344,245 @@ public class TeacherController : Controller
         return RedirectToAction(nameof(Questions), new { lectureId });
     }
 
-    // === Test Questions & Answers Management ===
+    // === Test & Questions Management ===
 
-    [HttpGet]
-    public async Task<IActionResult> CreateTestQuestion(int lectureId)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateTest(CreateTestViewModel model)
     {
-        var lecture = await _context.Lectures
-            .Include(l => l.Topic)
-                .ThenInclude(t => t.Discipline)
-            .Include(l => l.Tests)
-                .ThenInclude(t => t.Questions)
-            .FirstOrDefaultAsync(l => l.Id == lectureId);
-
+        var lecture = await _context.Lectures.FindAsync(model.LectureId);
         if (lecture == null) return NotFound();
 
-        var test = lecture.Tests.FirstOrDefault();
-        if (test == null)
+        if (string.IsNullOrWhiteSpace(model.Title))
         {
-            test = new Test
-            {
-                LectureId = lectureId,
-                Title = $"Контрольный тест: {lecture.Title}",
-                PassingScorePercent = lecture.PassingScorePercent > 0 ? lecture.PassingScorePercent : 70,
-                MaxAttempts = 3,
-                TimeLimitMinutes = 15,
-                ShuffleQuestions = false,
-                ShuffleOptions = false,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Tests.Add(test);
-            await _context.SaveChangesAsync();
-            lecture.Tests.Add(test);
+            TempData["ErrorMessage"] = "Укажите название теста.";
+            return RedirectToAction(nameof(Questions), new { lectureId = model.LectureId });
         }
+
+        var test = new Test
+        {
+            LectureId = model.LectureId,
+            Title = model.Title.Trim(),
+            PassingScorePercent = model.PassingScorePercent > 0 ? model.PassingScorePercent : 70,
+            MaxAttempts = model.MaxAttempts > 0 ? model.MaxAttempts : 3,
+            TimeLimitMinutes = model.TimeLimitMinutes,
+            ShuffleQuestions = false,
+            ShuffleOptions = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Tests.Add(test);
+        lecture.RequiresTestToUnlockNext = true;
+        await _context.SaveChangesAsync();
+
+        _context.AuditLogs.Add(new AuditLog
+        {
+            Action = "TestCreated",
+            EntityName = "Test",
+            EntityId = test.Id.ToString(),
+            UserId = _userManager.GetUserId(User),
+            UserName = User.Identity?.Name ?? "Teacher",
+            Details = $"Преподаватель создал тест '{test.Title}' в лекции '{lecture.Title}' (порог: {test.PassingScorePercent}%, попыток: {test.MaxAttempts}).",
+            Timestamp = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = $"Тест «{test.Title}» успешно создан! Теперь добавьте к нему вопросы.";
+        return RedirectToAction(nameof(Questions), new { lectureId = model.LectureId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteTest(int testId, int lectureId)
+    {
+        var test = await _context.Tests
+            .Include(t => t.Questions)
+                .ThenInclude(q => q.Options)
+            .Include(t => t.Attempts)
+            .FirstOrDefaultAsync(t => t.Id == testId && t.LectureId == lectureId);
+
+        if (test != null)
+        {
+            string title = test.Title;
+            _context.Tests.Remove(test);
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                Action = "TestDeleted",
+                EntityName = "Test",
+                EntityId = testId.ToString(),
+                UserId = _userManager.GetUserId(User),
+                UserName = User.Identity?.Name ?? "Teacher",
+                Details = $"Преподаватель удалил тест '{title}' (ID: {testId}) из лекции ID: {lectureId}.",
+                Timestamp = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"Тест «{title}» успешно удалён.";
+        }
+
+        return RedirectToAction(nameof(Questions), new { lectureId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CreateTopicTest(int topicId)
+    {
+        var topic = await _context.Topics
+            .Include(t => t.Discipline)
+            .Include(t => t.Lectures)
+            .FirstOrDefaultAsync(t => t.Id == topicId);
+
+        if (topic == null) return NotFound();
+
+        int nextOrder = topic.Lectures.Count + 1;
+
+        var model = new CreateTopicTestViewModel
+        {
+            TopicId = topic.Id,
+            TopicTitle = topic.Title,
+            DisciplineId = topic.DisciplineId,
+            DisciplineTitle = topic.Discipline.Title,
+            Title = $"Тестирование по теме «{topic.Title}»",
+            OrderIndex = nextOrder,
+            PassingScorePercent = 70,
+            MaxAttempts = 3,
+            TimeLimitMinutes = 20
+        };
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateTopicTest(CreateTopicTestViewModel model)
+    {
+        var topic = await _context.Topics
+            .Include(t => t.Discipline)
+            .FirstOrDefaultAsync(t => t.Id == model.TopicId);
+
+        if (topic == null) return NotFound();
+
+        if (string.IsNullOrWhiteSpace(model.Title))
+        {
+            ModelState.AddModelError(nameof(model.Title), "Укажите название теста");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            model.TopicTitle = topic.Title;
+            model.DisciplineId = topic.DisciplineId;
+            model.DisciplineTitle = topic.Discipline.Title;
+            return View(model);
+        }
+
+        // Create lecture container for testing
+        var lecture = new Lecture
+        {
+            TopicId = topic.Id,
+            Title = model.Title.Trim(),
+            Description = model.Description?.Trim() ?? string.Empty,
+            OrderIndex = model.OrderIndex,
+            RequiresTestToUnlockNext = true,
+            PassingScorePercent = model.PassingScorePercent,
+            RequiresQuestionsCheck = false,
+            Deadline = model.Deadline,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Lectures.Add(lecture);
+        await _context.SaveChangesAsync();
+
+        // Create the test
+        var test = new Test
+        {
+            LectureId = lecture.Id,
+            Title = model.Title.Trim(),
+            PassingScorePercent = model.PassingScorePercent,
+            MaxAttempts = model.MaxAttempts,
+            TimeLimitMinutes = model.TimeLimitMinutes,
+            ShuffleQuestions = false,
+            ShuffleOptions = false,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.Tests.Add(test);
+        await _context.SaveChangesAsync();
+
+        _context.AuditLogs.Add(new AuditLog
+        {
+            Action = "TopicTestCreated",
+            EntityName = "Test",
+            EntityId = test.Id.ToString(),
+            UserId = _userManager.GetUserId(User),
+            UserName = User.Identity?.Name ?? "Teacher",
+            Details = $"Преподаватель добавил тест «{test.Title}» в тему «{topic.Title}» (порог: {test.PassingScorePercent}%, попыток: {test.MaxAttempts}).",
+            Timestamp = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        TempData["SuccessMessage"] = $"Тест «{test.Title}» успешно добавлен в тему! Добавьте вопросы к тесту.";
+        return RedirectToAction(nameof(Questions), new { lectureId = lecture.Id });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CreateTestQuestion(int? testId = null, int? lectureId = null)
+    {
+        Test? test = null;
+        Lecture? lecture = null;
+
+        if (testId.HasValue)
+        {
+            test = await _context.Tests
+                .Include(t => t.Lecture)
+                    .ThenInclude(l => l.Topic)
+                        .ThenInclude(t => t.Discipline)
+                .Include(t => t.Questions)
+                .FirstOrDefaultAsync(t => t.Id == testId.Value);
+
+            if (test != null)
+            {
+                lecture = test.Lecture;
+            }
+        }
+
+        if (test == null && lectureId.HasValue)
+        {
+            lecture = await _context.Lectures
+                .Include(l => l.Topic)
+                    .ThenInclude(t => t.Discipline)
+                .Include(l => l.Tests)
+                    .ThenInclude(t => t.Questions)
+                .FirstOrDefaultAsync(l => l.Id == lectureId.Value);
+
+            if (lecture != null)
+            {
+                test = lecture.Tests.FirstOrDefault();
+                if (test == null)
+                {
+                    test = new Test
+                    {
+                        LectureId = lecture.Id,
+                        Title = $"Тест: {lecture.Title}",
+                        PassingScorePercent = lecture.PassingScorePercent > 0 ? lecture.PassingScorePercent : 70,
+                        MaxAttempts = 3,
+                        TimeLimitMinutes = 15,
+                        ShuffleQuestions = false,
+                        ShuffleOptions = false,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Tests.Add(test);
+                    await _context.SaveChangesAsync();
+                    lecture.Tests.Add(test);
+                }
+            }
+        }
+
+        if (test == null || lecture == null) return NotFound();
 
         int nextOrder = test.Questions.Count + 1;
 
         var model = new CreateTestQuestionViewModel
         {
+            TestId = test.Id,
+            TestTitle = test.Title,
             LectureId = lecture.Id,
             LectureTitle = lecture.Title,
             DisciplineId = lecture.Topic.DisciplineId,
@@ -404,14 +606,42 @@ public class TeacherController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateTestQuestion(CreateTestQuestionViewModel model)
     {
-        var lecture = await _context.Lectures
-            .Include(l => l.Topic)
-                .ThenInclude(t => t.Discipline)
-            .Include(l => l.Tests)
-                .ThenInclude(t => t.Questions)
-            .FirstOrDefaultAsync(l => l.Id == model.LectureId);
+        var test = await _context.Tests
+            .Include(t => t.Questions)
+            .Include(t => t.Lecture)
+                .ThenInclude(l => l.Topic)
+                    .ThenInclude(t => t.Discipline)
+            .FirstOrDefaultAsync(t => t.Id == model.TestId);
 
-        if (lecture == null) return NotFound();
+        if (test == null)
+        {
+            // Fallback to lecture first test if TestId wasn't passed
+            var lec = await _context.Lectures
+                .Include(l => l.Topic)
+                    .ThenInclude(t => t.Discipline)
+                .Include(l => l.Tests)
+                    .ThenInclude(t => t.Questions)
+                .FirstOrDefaultAsync(l => l.Id == model.LectureId);
+
+            if (lec == null) return NotFound();
+            test = lec.Tests.FirstOrDefault();
+            if (test == null)
+            {
+                test = new Test
+                {
+                    LectureId = lec.Id,
+                    Title = $"Тест: {lec.Title}",
+                    PassingScorePercent = lec.PassingScorePercent > 0 ? lec.PassingScorePercent : 70,
+                    MaxAttempts = 3,
+                    TimeLimitMinutes = 15,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Tests.Add(test);
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        var lecture = test.Lecture;
 
         // Filter out empty options
         var validOptions = model.Options
@@ -455,6 +685,9 @@ public class TeacherController : Controller
 
         if (!ModelState.IsValid)
         {
+            model.TestId = test.Id;
+            model.TestTitle = test.Title;
+            model.LectureId = lecture.Id;
             model.LectureTitle = lecture.Title;
             model.DisciplineId = lecture.Topic.DisciplineId;
             model.DisciplineTitle = lecture.Topic.Discipline.Title;
@@ -466,24 +699,6 @@ public class TeacherController : Controller
                 }
             }
             return View(model);
-        }
-
-        var test = lecture.Tests.FirstOrDefault();
-        if (test == null)
-        {
-            test = new Test
-            {
-                LectureId = lecture.Id,
-                Title = $"Контрольный тест: {lecture.Title}",
-                PassingScorePercent = lecture.PassingScorePercent > 0 ? lecture.PassingScorePercent : 70,
-                MaxAttempts = 3,
-                TimeLimitMinutes = 15,
-                ShuffleQuestions = false,
-                ShuffleOptions = false,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Tests.Add(test);
-            await _context.SaveChangesAsync();
         }
 
         lecture.RequiresTestToUnlockNext = true;
@@ -519,13 +734,13 @@ public class TeacherController : Controller
             EntityId = question.Id.ToString(),
             UserId = _userManager.GetUserId(User),
             UserName = User.Identity?.Name ?? "Teacher",
-            Details = $"Преподаватель добавил вопрос '{question.QuestionText}' ({validOptions.Count} вар. ответов) в тест лекции '{lecture.Title}'.",
+            Details = $"Преподаватель добавил вопрос '{question.QuestionText}' ({validOptions.Count} вар. ответов) в тест '{test.Title}' лекции '{lecture.Title}'.",
             Timestamp = DateTime.UtcNow
         });
         await _context.SaveChangesAsync();
 
-        TempData["SuccessMessage"] = "Вопрос теста и варианты ответов успешно сохранены!";
-        return RedirectToAction(nameof(Questions), new { lectureId = model.LectureId });
+        TempData["SuccessMessage"] = $"Вопрос успешно добавлен в тест «{test.Title}»!";
+        return RedirectToAction(nameof(Questions), new { lectureId = lecture.Id });
     }
 
     [HttpPost]
